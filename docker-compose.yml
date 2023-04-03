@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  beam-proxy:
+    image: samply/beam-proxy:main
+    ports:
+      - 8081:8081
+    environment:
+      BROKER_URL: https://broker.dev.ccp-it.dktk.dkfz.de
+      PROXY_ID: dev-torben.broker.dev.ccp-it.dktk.dkfz.de
+      APP_0_ID: spot
+      APP_0_KEY: foo
+      PRIVKEY_FILE: /run/secrets/proxy.pem
+      ROOTCERT_FILE: /conf/root.crt.pem
+      RUST_LOG: "debug"
+    secrets:
+      - proxy.pem
+    volumes:
+      - ./root.crt.pem:/conf/root.crt.pem:ro
+
+secrets:
+  proxy.pem:
+    file: /etc/bridgehead/pki/dev-torben.priv.pem
