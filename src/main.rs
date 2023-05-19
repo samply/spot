@@ -1,10 +1,10 @@
 use std::{sync::Arc, convert::Infallible};
 
-use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse, Response}, http::{HeaderValue, HeaderName}};
+use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse}, http::HeaderValue};
 use clap::Parser;
 use futures::{Stream, TryStreamExt, StreamExt};
 use http::StatusCode;
-use hyper::{Client, HeaderMap, header::{AUTHORIZATION, ACCEPT}, Uri, Request, Method, Body};
+use hyper::{Client, header::{AUTHORIZATION, ACCEPT}, Uri, Request, Method, Body};
 use serde::{Serialize, Deserialize};
 use tracing::{debug, trace};
 use url::Url;
@@ -106,6 +106,7 @@ async fn handle_listen_to_beam_tasks(
 #[tokio::main]
 async fn main() {
     init_logger().expect("Unable to initialize logger.");
+    banner::print_banner();
     let args = Arc::new(Arguments::parse());
     debug!("Beam URL: {}", &args.beam_url);
     debug!("Beam App: {}", &args.beam_app);
