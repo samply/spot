@@ -5,13 +5,13 @@ services:
     ports:
       - 8081:8081
     environment:
-      BROKER_URL: https://broker.dev.ccp-it.dktk.dkfz.de
-      PROXY_ID: dev-torben.broker.dev.ccp-it.dktk.dkfz.de
-      APP_0_ID: spot
-      APP_0_KEY: foo
+      BROKER_URL: https://${BROKER_ID}
+      PROXY_ID: ${SITE_ID}.${BROKER_ID}
+      APP_0_ID: ${BEAM_APP_ID}
+      APP_0_KEY: ${BEAM_APP_SECRET}
       PRIVKEY_FILE: /run/secrets/proxy.pem
       ROOTCERT_FILE: /conf/root.crt.pem
-      ALL_PROXY: http://www-int2.inet.dkfz-heidelberg.de:3128
+      ALL_PROXY: ${http_proxy}
       RUST_LOG: "debug"
     secrets:
       - proxy.pem
@@ -20,4 +20,4 @@ services:
 
 secrets:
   proxy.pem:
-    file: /etc/bridgehead/pki/dev-torben.priv.pem
+    file: /etc/bridgehead/pki/${SITE_ID}.priv.pem
