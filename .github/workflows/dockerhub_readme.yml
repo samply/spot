@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         component:
-          - spot-new
+          - rustyspot
 
     steps:
       - name: Checkout

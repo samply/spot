@@ -103,7 +103,7 @@ jobs:
     uses: samply/github-workflows/.github/workflows/docker-ci.yml@main
     with:
       # The Docker Hub Repository you want eventually push to, e.g samply/share-client
-      image-name: "samply/spot-new"
+      image-name: "samply/rustyspot"
       # Define special prefixes for docker tags. They will prefix each images tag.
       # image-tag-prefix: "foo"
       # Define the build context of your image, typically default '.' will be enough
