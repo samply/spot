@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, convert::Infallible};
 
-use axum::{Router, routing::post, extract::{Json, State}};
+use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse, Response}, http::{HeaderValue, HeaderName}};
 use clap::Parser;
-use reqwest::{Response, Url};
+use futures::{Stream, TryStreamExt, StreamExt};
+use hyper::{HeaderMap, header::{AUTHORIZATION, ACCEPT}, Client, Uri, Request, Method, Body};
+use reqwest::{Url, StatusCode};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
@@ -36,6 +38,36 @@ pub struct Retry {
     pub max_tries: usize,
 }
 
+// Taken from beam, can this be a library?
+pub enum SseEventType {
+    NewTask,
+    NewResult,
+    UpdatedTask,
+    UpdatedResult,
+    WaitExpired,
+    DeletedTask,
+    Error,
+    Undefined,
+    Unknown(String)
+}
+
+// Taken from beam, can this be a library?
+impl AsRef<str> for SseEventType {
+    fn as_ref(&self) -> &str {
+        match self {
+            SseEventType::NewTask => "new_task",
+            SseEventType::NewResult => "new_result",
+            SseEventType::UpdatedTask => "updated_task",
+            SseEventType::UpdatedResult => "updated_result",
+            SseEventType::WaitExpired => "wait_expired",
+            SseEventType::DeletedTask => "deleted_task",
+            SseEventType::Error => "error",
+            SseEventType::Undefined => "", // Make this "message"?
+            SseEventType::Unknown(e) => e.as_str(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct BeamTask {
     id: String,
@@ -43,7 +75,6 @@ struct BeamTask {
     to: Vec<String>,
     metadata: String,
     body: String,
-    // TODO: Failure Strategy
     failure_strategy: FailureStrategy,
     ttl: String,
 }
@@ -51,14 +82,19 @@ struct BeamTask {
 async fn handle_post(
     State(args): State<Arc<Arguments>>,
     Json(query): Json<LensQuery>
-) -> String {
-    let result = create_beam_task(&args, &query).await;
-    match result {
-        Ok(data) => format!("The response has status {}", data.status()),
-        Err(err) => format!("The error says: {}", err.to_string())
-    }
+) -> Result<Response, (StatusCode, String)>{
+    let result = create_beam_task(&args, &query).await?.into_response();
+    Ok(result)
 }
 
+async fn handle_get(
+    State(args): State<Arc<Arguments>>,
+    Path(task_id): Path<Uuid>,
+    Query(wait_count): Query<i32>
+) -> Result<Response, (StatusCode, String)> {
+    let result = listen_beam_results(&args, task_id.to_string(), wait_count).await?.into_response();
+    Ok(result)
+}
 
 #[tokio::main]
 async fn main() {
@@ -67,7 +103,8 @@ async fn main() {
     println!("Beam App: {}", &args.beam_app);
     // TODO: Add check for reachability of beam-proxy
     let app = Router::new()
-        .route("/", post(handle_post))
+        .route("/beam", post(handle_post))
+        .route("/beam/:task_id", get(handle_get))
         .with_state(args);
 
     axum::Server::bind(&"0.0.0.0:8080".parse().unwrap())
@@ -76,20 +113,88 @@ async fn main() {
         .unwrap();
 }
 
-async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<Response, reqwest::Error> {
-    let client = reqwest::Client::new();
+async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<Response, (StatusCode, String)> {
+    let client = Client::new();
     let url = format!("{}v1/tasks", args.beam_url);
-    let auth_header = format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret);
+    let auth_header = generate_auth_header(args);
     let body = map_lens_to_beam(args, query);
     println!("{}", url);
     println!("{}", auth_header);
     println!("{}", body.id);
-    client.post(url)
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri(url)
         .header("Authorization", auth_header)
-        .json(&body)
-        .send()
-        .await
+        .body(Body::from(serde_json::from_slice(body)));
+    client.request(req).await
 }
+
+async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
+    let client = reqwest::Client::new();
+    let url = format!("{}v1/tasks/{}/results?wait_count={}", args.beam_url, task_id, wait_count);
+    let mut headers = HeaderMap::new();
+    println!("{}", url);
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret))
+            .map_err(|_err| {
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("Can't assemble authorization Header for Beam"))
+            })?);
+    headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
+
+    let resp = client.get(url)
+          .headers(headers)
+          .send()
+          .await.map_err(|err| {
+              println!("Failed request to {} with error: {}", args.beam_url, err.to_string());
+              (StatusCode::BAD_GATEWAY, format!("Error calling beam, check the server logs."))
+          })?;
+
+    let code = resp.status();
+
+    if ! code.is_success() {
+        // How can i get the message from resp?
+        return Err((code, format!("TODO: Proper handling of the error message here")))
+    }
+
+    let outgoing = async_stream::stream! {
+
+        let incoming = resp
+            .bytes_stream()
+            .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
+
+        let mut decoder = async_sse::decode(incoming.into_async_read());
+
+        while let Some(event) = decoder.next().await {
+            let event = match event {
+                Ok(event) => event,
+                Err(err) => {
+                    println!("Got error reading SSE stream: {err}");
+                    yield Ok(Event::default()
+                             .event(SseEventType::Error)
+                             .data("Error reading SSE stream from Broker (see Proxy logs for details)."));
+                    continue;
+                }
+            };
+            match event {
+                async_sse::Event::Retry(_dur) => {
+                    format!("Got a retry message from the Broker, which is not yet supported.");
+                },
+                async_sse::Event::Message(_event) => {
+                    continue;
+                }
+            }
+        }
+    };
+
+    let sse = Sse::new(outgoing);
+    Ok(sse)
+}
+
+fn generate_auth_header (args: &Arguments) -> String {
+    format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
+}
+
 
 fn map_lens_to_beam(args: &Arguments, query: &LensQuery) -> BeamTask {
     let task_id = Uuid::new_v4();

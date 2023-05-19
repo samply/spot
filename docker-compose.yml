@@ -11,6 +11,7 @@ services:
       APP_0_KEY: foo
       PRIVKEY_FILE: /run/secrets/proxy.pem
       ROOTCERT_FILE: /conf/root.crt.pem
+      ALL_PROXY: http://www-int2.inet.dkfz-heidelberg.de:3128
       RUST_LOG: "debug"
     secrets:
       - proxy.pem
