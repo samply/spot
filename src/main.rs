@@ -3,7 +3,7 @@ use std::{sync::Arc, convert::Infallible};
 use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse}, http::HeaderValue};
 use clap::Parser;
 use futures::{Stream, TryStreamExt, StreamExt};
-use http::StatusCode;
+use http::{StatusCode, header::LOCATION};
 use hyper::{Client, header::{AUTHORIZATION, ACCEPT}, Uri, Request, Method, Body};
 use serde::{Serialize, Deserialize};
 use tracing::{debug, trace};
@@ -140,13 +140,33 @@ async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<impl In
             println!("Unable to construct Beam.Proxy query: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Unable to build Beam.Proxy query.")
         })?;
-    let resp = client
+    let beam_resp = client
         .request(req)
         .await
         .map_err(|e| {
             println!("Unable to query Beam.Proxy: {}", e);
             (StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy.")
         })?;
+
+    let location_header = beam_resp
+        .headers()
+        .get(LOCATION)
+        .unwrap()
+        .to_str()
+        .map_err(|e| {
+            println!("Unable to parse location header received by beam-proxy: {}", e);
+            (StatusCode::BAD_GATEWAY, "Unable to parse Beam.Proxy response")
+        })
+        .unwrap()
+        .replace("tasks", "beam");
+
+    let resp = (
+           StatusCode::CREATED,
+           [
+               (LOCATION, location_header)
+           ]
+       );
+
     Ok(resp)
 }
 
