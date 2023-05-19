@@ -3,10 +3,11 @@ use std::{sync::Arc, convert::Infallible};
 use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse, Response}, http::{HeaderValue, HeaderName}};
 use clap::Parser;
 use futures::{Stream, TryStreamExt, StreamExt};
+use http::StatusCode;
 use hyper::{Client, HeaderMap, header::{AUTHORIZATION, ACCEPT}, Uri, Request, Method, Body};
-use reqwest::{Url, StatusCode};
 use serde::{Serialize, Deserialize};
 use tracing::{debug, trace};
+use url::Url;
 use uuid::Uuid;
 
 use crate::logger::init_logger;
@@ -149,25 +150,27 @@ async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<impl In
 }
 
 async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
-    let client = reqwest::Client::new();
-    let url = format!("{}v1/tasks/{}/results?wait_count={}", args.beam_url, task_id, wait_count);
-    let mut headers = HeaderMap::new();
-    println!("{}", url);
-    headers.insert(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret))
-            .map_err(|_err| {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Can't assemble authorization Header for Beam"))
-            })?);
-    headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
+    let client = Client::new();
+    let url = 
+        format!("{}v1/tasks/{}/results?wait_count={}", args.beam_url, task_id, wait_count)
+        .parse::<Uri>()
+        .expect("Unable to create URL query string, this should not happen.");
 
-    let resp = client.get(url)
-          .headers(headers)
-          .send()
-          .await.map_err(|err| {
-              println!("Failed request to {} with error: {}", args.beam_url, err.to_string());
-              (StatusCode::BAD_GATEWAY, format!("Error calling beam, check the server logs."))
-          })?;
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(url)
+        .header(AUTHORIZATION, format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret))
+        .header(ACCEPT, HeaderValue::from_static("text/event-stream"))
+        .body(Body::empty())
+        .expect("Unable to create HTTP query, this should not happen.");
+
+    let mut resp = client
+        .request(req)
+        .await
+        .map_err(|err| {
+            println!("Failed request to {} with error: {}", args.beam_url, err.to_string());
+            (StatusCode::BAD_GATEWAY, format!("Error calling beam, check the server logs."))
+        })?;
 
     let code = resp.status();
 
@@ -177,9 +180,8 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
     }
 
     let outgoing = async_stream::stream! {
-
         let incoming = resp
-            .bytes_stream()
+            .body_mut()
             .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
 
         let mut decoder = async_sse::decode(incoming.into_async_read());
