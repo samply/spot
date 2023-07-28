@@ -239,13 +239,12 @@ fn generate_auth_header (args: &Arguments) -> String {
 
 
 fn map_lens_to_beam(args: &Arguments, query: &LensQuery) -> BeamTask {
-    let task_id = Uuid::new_v4();
     let mut target_sites = Vec::new();
     for site in query.sites.clone() {
         target_sites.push(format!("focus.{}.broker.dev.ccp-it.dktk.dkfz.de", site));
     }
     BeamTask {
-        id: format!("{}", task_id),
+        id: format!("{}", query.id),
         from: format!("{}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de", args.beam_app),
         to: target_sites,
         metadata: format!(""),
