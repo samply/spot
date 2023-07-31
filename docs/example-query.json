@@ -1,0 +1,105 @@
+{
+  "lang": "cql",
+  "lib": {
+    "resourceType": "Library",
+    "url": "urn:uuid:67c8b114-994d-474a-9e20-4e1c1e34a4d0",
+    "status": "active",
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/library-type",
+          "code": "logic-library"
+        }
+      ]
+    },
+    "content": [
+      {
+        "contentType": "text/cql",
+        "data": "bGlicmFyeSBSZXRyaWV2ZQp1c2luZyBGSElSIHZlcnNpb24gJzQuMC4wJwppbmNsdWRlIEZISVJIZWxwZXJzIHZlcnNpb24gJzQuMC4wJwoKY29udGV4dCBQYXRpZW50CgpES1RLX1NUUkFUX0dFTkRFUl9TVFJBVElGSUVSCgpES1RLX1NUUkFUX0RFQ0VBU0VEX1NUUkFUSUZJRVIKCkRLVEtfU1RSQVRfQUdFX1NUUkFUSUZJRVIKCkRLVEtfU1RSQVRfREVGX0lOX0lOSVRJQUxfUE9QVUxBVElPTgp0cnVlCg=="}]
+  },
+  "measure": {
+    "resourceType": "Measure",
+    "url": "urn:uuid:e2a7d5ed-6d0e-45fd-a8e3-56af5d536749",
+    "status": "active",
+    "subjectCodeableConcept": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/resource-types",
+          "code": "Patient"
+        }
+      ]
+    },
+    "library": "urn:uuid:67c8b114-994d-474a-9e20-4e1c1e34a4d0",
+    "scoring": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/measure-scoring",
+          "code": "cohort"
+        }
+      ]
+    },
+    "group": [
+      {
+        "population": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/measure-population",
+                  "code": "initial-population"
+                }
+              ]
+            },
+            "criteria": {
+              "language": "text/cql-identifier",
+              "expression": "InInitialPopulation"
+            }
+          }
+        ],
+        "stratifier": [
+          {
+            "code": {
+              "text": "Gender"
+            },
+            "criteria": {
+              "language": "text/cql",
+              "expression": "Gender"
+            }
+          },
+          {
+            "code": {
+              "text": "Deceased"
+            },
+            "criteria": {
+              "language": "text/cql",
+              "expression": "Deceased"
+            }
+          },
+          {
+            "code": {
+              "text": "Age"
+            },
+            "criteria": {
+              "language": "text/cql",
+              "expression": "AgeClass"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "https://dktk.dkfz.de/fhir/CodeSystem/exliquid-stratifier",
+                  "code": "diagnosis"
+                }
+              ]
+            },
+            "criteria": {
+              "language": "text/cql-identifier",
+              "expression": "Diagnosis"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
