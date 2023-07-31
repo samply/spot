@@ -1,4 +1,4 @@
-use std::{sync::Arc, convert::Infallible};
+use std::{sync::Arc, convert::Infallible, str::FromStr, fmt::Display};
 
 use axum::{Router, routing::{get, post}, extract::{Json, State, Path, Query}, response::{Sse, sse::Event, IntoResponse}, http::HeaderValue};
 use clap::Parser;
@@ -6,7 +6,7 @@ use futures::{Stream, TryStreamExt, StreamExt};
 use http::{StatusCode, header::LOCATION};
 use hyper::{Client, header::{AUTHORIZATION, ACCEPT}, Uri, Request, Method, Body};
 use serde::{Serialize, Deserialize};
-use tracing::{debug, trace};
+use tracing::{debug, trace, info, warn, error};
 use url::Url;
 use uuid::Uuid;
 
@@ -75,6 +75,30 @@ impl AsRef<str> for SseEventType {
     }
 }
 
+impl FromStr for SseEventType {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "new_task" => Self::NewTask,
+            "new_result" => Self::NewResult,
+            "updated_task" => Self::UpdatedTask,
+            "updated_result" => Self::UpdatedResult,
+            "wait_expired" => Self::WaitExpired,
+            "deleted_task" => Self::DeletedTask,
+            "error" => Self::Error,
+            "message" => Self::Undefined,
+            unknown => Self::Unknown(unknown.to_string())
+        })
+    }
+}
+
+impl Display for SseEventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct BeamTask {
     id: String,
@@ -94,12 +118,17 @@ async fn handle_create_beam_task(
     Ok(result)
 }
 
+#[derive(Deserialize)]
+struct ListenQueryParameters {
+    wait_count: u16,
+}
+
 async fn handle_listen_to_beam_tasks(
     State(args): State<Arc<Arguments>>,
     Path(task_id): Path<Uuid>,
-    Query(wait_count): Query<i32>
+    Query(listen_query_parameter): Query<ListenQueryParameters>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let result = listen_beam_results(&args, task_id.to_string(), wait_count).await?;
+    let result = listen_beam_results(&args, task_id.to_string(), listen_query_parameter.wait_count).await?;
     Ok(result)
 }
 
@@ -147,6 +176,7 @@ async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<impl In
             println!("Unable to query Beam.Proxy: {}", e);
             (StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy.")
         })?;
+    // TODO: Handle 401 etc. here
 
     let location_header = beam_resp
         .headers()
@@ -170,7 +200,7 @@ async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<impl In
     Ok(resp)
 }
 
-async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
+async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: u16) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
     let client = Client::new();
     let url = 
         format!("{}v1/tasks/{}/results?wait_count={}", args.beam_url, task_id, wait_count)
@@ -180,7 +210,7 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
     let req = Request::builder()
         .method(Method::GET)
         .uri(url)
-        .header(AUTHORIZATION, format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret))
+        .header(AUTHORIZATION, format!("ApiKey {}.torben-develop.broker.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret))
         .header(ACCEPT, HeaderValue::from_static("text/event-stream"))
         .body(Body::empty())
         .expect("Unable to create HTTP query, this should not happen.");
@@ -201,6 +231,8 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
     }
 
     let outgoing = async_stream::stream! {
+        info!("Now creating outgoing sse stream");
+
         let incoming = resp
             .body_mut()
             .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
@@ -209,7 +241,10 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
 
         while let Some(event) = decoder.next().await {
             let event = match event {
-                Ok(event) => event,
+                Ok(event) => {
+                    info!("Got event that is okay");
+                    event
+                },
                 Err(err) => {
                     println!("Got error reading SSE stream: {err}");
                     yield Ok(Event::default()
@@ -220,10 +255,46 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
             };
             match event {
                 async_sse::Event::Retry(_dur) => {
+                    info!("Got a retry message from broker");
                     format!("Got a retry message from the Broker, which is not yet supported.");
                 },
-                async_sse::Event::Message(_event) => {
-                    continue;
+                async_sse::Event::Message(event) => {
+                    info!("Got a normal Message");
+                    let event_type = SseEventType::from_str(event.name()).expect("Error in Infallible");
+                    let event_as_bytes = event.into_bytes();
+                    let event_as_str = std::str::from_utf8(&event_as_bytes).unwrap_or("(unable to parse)");
+                    match &event_type {
+                        SseEventType::DeletedTask | SseEventType::WaitExpired => {
+                            debug!("SSE: Got {event_type} message, forwarding to App.");
+                            yield Ok(Event::default()
+                                .event(event_type)
+                                .data(event_as_str));
+                            continue;
+                        },
+                        SseEventType::Error => {
+                            warn!("SSE: The Broker has reported an error: {event_as_str}");
+                            yield Ok(Event::default()
+                                .event(event_type)
+                                .data(event_as_str));
+                            continue;
+                        },
+                        SseEventType::Undefined => {
+                            error!("SSE: Got a message without event type -- discarding.");
+                            continue;
+                        },
+                        SseEventType::Unknown(s) => {
+                            error!("SSE: Got unknown event type: {s} -- discarding.");
+                            continue;
+                        }
+                        other => {
+                            warn!("Got \"{other}\" event -- parsing.");
+                        }
+                    }
+                    let as_string = std::str::from_utf8(&event_as_bytes).unwrap_or("(garbled_utf8)");
+                    let event = Event::default()
+                        .event(event_type)
+                        .data(as_string);
+                    yield Ok(event);
                 }
             }
         }
@@ -234,18 +305,21 @@ async fn listen_beam_results(args: &Arguments, task_id: String, wait_count: i32)
 }
 
 fn generate_auth_header (args: &Arguments) -> String {
-    format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
+    // TODO: Add Configuration for this
+    // format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
+    format!("ApiKey {}.torben-develop.broker.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
 }
 
 
 fn map_lens_to_beam(args: &Arguments, query: &LensQuery) -> BeamTask {
     let mut target_sites = Vec::new();
     for site in query.sites.clone() {
-        target_sites.push(format!("focus.{}.broker.dev.ccp-it.dktk.dkfz.de", site));
+        // TODO: Configuration should also apply here
+        target_sites.push(format!("focus.{}.broker.ccp-it.dktk.dkfz.de", site));
     }
     BeamTask {
         id: format!("{}", query.id),
-        from: format!("{}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de", args.beam_app),
+        from: format!("{}.torben-develop.broker.ccp-it.dktk.dkfz.de", args.beam_app),
         to: target_sites,
         metadata: format!(""),
         body: query.query.clone(),
