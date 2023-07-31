@@ -12,10 +12,12 @@ use uuid::Uuid;
 
 use crate::logger::init_logger;
 use crate::sse_event_type::SseEventType;
+use crate::beam::BeamTask;
 
 mod banner;
 mod logger;
 mod sse_event_type;
+mod beam;
 
 #[derive(Parser, Clone)]
 #[clap(author, version, about, long_about = None)]
@@ -33,29 +35,6 @@ struct LensQuery {
     id: String,
     sites: Vec<String>,
     query: String
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum FailureStrategy {
-    Retry(Retry),
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Retry {
-    pub backoff_millisecs: usize,
-    pub max_tries: usize,
-}
-
-#[derive(Serialize, Deserialize)]
-struct BeamTask {
-    id: String,
-    from: String,
-    to: Vec<String>,
-    metadata: String,
-    body: String,
-    failure_strategy: FailureStrategy,
-    ttl: String,
 }
 
 async fn handle_create_beam_task(
@@ -104,7 +83,12 @@ async fn create_beam_task(args: &Arguments, query: &LensQuery) -> Result<impl In
     let client = Client::new();
     let url = format!("{}v1/tasks", args.beam_url);
     let auth_header = generate_auth_header(args);
-    let body = map_lens_to_beam(args, query);
+    let body = BeamTask::new(
+        query.id.clone(),
+        args.beam_app.clone(),
+        query.sites.clone(),
+        query.query.clone()
+    );
     trace!(url, auth_header, body.id);
     let body = serde_json::to_vec(&body).unwrap();
     let body = hyper::Body::from(body);
@@ -256,25 +240,4 @@ fn generate_auth_header (args: &Arguments) -> String {
     // TODO: Add Configuration for this
     // format!("ApiKey {}.dev-torben.broker.dev.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
     format!("ApiKey {}.torben-develop.broker.ccp-it.dktk.dkfz.de {}", args.beam_app, args.beam_secret)
-}
-
-
-fn map_lens_to_beam(args: &Arguments, query: &LensQuery) -> BeamTask {
-    let mut target_sites = Vec::new();
-    for site in query.sites.clone() {
-        // TODO: Configuration should also apply here
-        target_sites.push(format!("focus.{}.broker.ccp-it.dktk.dkfz.de", site));
-    }
-    BeamTask {
-        id: format!("{}", query.id),
-        from: format!("{}.torben-develop.broker.ccp-it.dktk.dkfz.de", args.beam_app),
-        to: target_sites,
-        metadata: format!(""),
-        body: query.query.clone(),
-        failure_strategy: FailureStrategy::Retry(Retry {
-            backoff_millisecs: 1000,
-            max_tries: 5
-        }),
-        ttl: format!("360s")
-    }
 }
