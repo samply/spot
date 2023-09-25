@@ -1,5 +1,5 @@
 use axum::{http::HeaderValue, response::Response};
-use hyper::header;
+use reqwest::header;
 use tracing::info;
 
 pub(crate) fn print_banner() {
