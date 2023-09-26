@@ -13,6 +13,7 @@ use clap::Parser;
 use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tower_http::cors::{CorsLayer, Any};
 use tracing::{info, warn, Level};
 use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
 
@@ -59,10 +60,15 @@ async fn main() {
     banner::print_banner();
     info!(?CONFIG);
     // TODO: Add check for reachability of beam-proxy
+
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(Any);
     let app = Router::new()
         .route("/beam", post(handle_create_beam_task))
         .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
-        .layer(axum::middleware::map_response(banner::set_server_header));
+        .layer(axum::middleware::map_response(banner::set_server_header))
+        .layer(cors);
 
     axum::Server::bind(&CONFIG.bind_addr)
         .serve(app.into_make_service())
