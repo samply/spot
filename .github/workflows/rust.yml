@@ -22,7 +22,7 @@ jobs:
 
   build-rust:
     name: Build (Rust)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     strategy:
       matrix:
@@ -94,7 +94,7 @@ jobs:
   #       with:
   #         name: binaries-amd64
   #         path: artifacts/binaries-amd64/
-  #     - run: ./dev/test ci
+  #     - run: cargo test
 
   docker:
     needs: [ build-rust, pre-check ]
@@ -109,7 +109,7 @@ jobs:
       # Define the build context of your image, typically default '.' will be enough
       # build-context: '.'
       # Define the Dockerfile of your image, typically default './Dockerfile' will be enough
-      build-file: './Dockerfile.ci'
+      build-file: './Dockerfile'
       # NOTE: This doesn't work currently
       # A list of build arguments, passed to the docker build
 #      build-args: |
