@@ -73,7 +73,7 @@ async fn main() {
 #[derive(Serialize, Deserialize)]
 struct LensQuery {
     id: MsgId,
-    sites: Vec<AppId>,
+    sites: Vec<String>,
     query: String,
 }
 
