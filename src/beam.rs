@@ -3,18 +3,16 @@ use crate::CONFIG;
 
 pub fn create_beam_task(
     id: beam_lib::MsgId,
-    target_sites: Vec<AppId>,
+    target_sites: Vec<String>,
     query: String,
 ) -> TaskRequest<String> {
-    let mut transformed_sites = Vec::new();
-    for site in target_sites.clone() {
-        // TODO: Configuration should also apply here
-        transformed_sites.push(format!("focus.{}.broker.ccp-it.dktk.dkfz.de", site));
-    }
+    let proxy_id = CONFIG.beam_app.proxy_id();
+    let broker_id = proxy_id.as_ref().split_once('.').expect("Invalid beam id in config").1;
+    let to = target_sites.into_iter().map(|site| AppId::new_unchecked(format!("focus.{site}.{broker_id}"))).collect();
     TaskRequest {
         id,
         from: CONFIG.beam_app.clone(),
-        to: target_sites,
+        to,
         metadata: serde_json::Value::Null,
         body: query,
         failure_strategy: beam_lib::FailureStrategy::Retry {
