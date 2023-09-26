@@ -63,7 +63,9 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any);
+        .allow_origin(Any)
+        .allow_headers([header::CONTENT_TYPE]);
+
     let app = Router::new()
         .route("/beam", post(handle_create_beam_task))
         .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
