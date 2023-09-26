@@ -23,17 +23,19 @@ mod beam;
 #[clap(author, version, about, long_about = None)]
 struct Config {
     /// URL of the Beam Proxy
+    #[clap(env)]
     beam_url: Url,
 
-    /// Credentials to use on the Beam Proxy
-    #[clap(value_parser = |v: &str| Ok::<_, Infallible>(AppId::new_unchecked(v)))]
+    /// Beam AppId of this application
+    #[clap(env, value_parser = |v: &str| Ok::<_, Infallible>(AppId::new_unchecked(v)))]
     beam_app: AppId,
 
     /// Credentials to use on the Beam Proxy
+    #[clap(env)]
     beam_secret: String,
 
     /// The socket address this server will bind to
-    #[clap(default_value = "0.0.0.0:8080")]
+    #[clap(env, default_value = "0.0.0.0:8080")]
     bind_addr: SocketAddr,
 }
 
