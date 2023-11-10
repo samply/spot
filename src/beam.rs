@@ -6,12 +6,12 @@ pub fn create_beam_task(
     target_sites: Vec<String>,
     query: String,
 ) -> TaskRequest<RawString> {
-    let proxy_id = CONFIG.beam_app.proxy_id();
+    let proxy_id = CONFIG.beam_app_id.proxy_id();
     let broker_id = proxy_id.as_ref().split_once('.').expect("Invalid beam id in config").1;
     let to = target_sites.into_iter().map(|site| AppId::new_unchecked(format!("focus.{site}.{broker_id}"))).collect();
     TaskRequest {
         id,
-        from: CONFIG.beam_app.clone(),
+        from: CONFIG.beam_app_id.clone(),
         to,
         metadata: serde_json::Value::Null,
         body: query.into(),

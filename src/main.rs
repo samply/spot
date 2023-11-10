@@ -24,19 +24,19 @@ mod beam;
 #[clap(author, version, about, long_about = None)]
 struct Config {
     /// URL of the Beam Proxy
-    #[clap(env)]
-    beam_url: Url,
+    #[clap(long, env)]
+    beam_proxy_url: Url,
 
     /// Beam AppId of this application
-    #[clap(env, value_parser = |v: &str| Ok::<_, Infallible>(AppId::new_unchecked(v)))]
-    beam_app: AppId,
+    #[clap(long, env, value_parser = |v: &str| Ok::<_, Infallible>(AppId::new_unchecked(v)))]
+    beam_app_id: AppId,
 
     /// Credentials to use on the Beam Proxy
-    #[clap(env)]
+    #[clap(long, env)]
     beam_secret: String,
 
     /// The socket address this server will bind to
-    #[clap(env, default_value = "0.0.0.0:8080")]
+    #[clap(long, env, default_value = "0.0.0.0:8080")]
     bind_addr: SocketAddr,
 }
 
@@ -44,9 +44,9 @@ static CONFIG: Lazy<Config> = Lazy::new(|| Config::parse());
 
 static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     BeamClient::new(
-        &CONFIG.beam_app,
+        &CONFIG.beam_app_id,
         &CONFIG.beam_secret,
-        CONFIG.beam_url.clone(),
+        CONFIG.beam_proxy_url.clone(),
     )
 });
 
@@ -122,7 +122,7 @@ async fn handle_listen_to_beam_tasks(
         .send()
         .await
         .map_err(|err| {
-            println!("Failed request to {} with error: {}", CONFIG.beam_url, err);
+            println!("Failed request to {} with error: {}", CONFIG.beam_proxy_url, err);
             (
                 StatusCode::BAD_GATEWAY,
                 format!("Error calling beam, check the server logs."),
