@@ -1,5 +1,3 @@
-use std::{convert::Infallible, net::SocketAddr};
-
 use axum::{
     extract::{Json, Path, Query},
     http::HeaderValue,
@@ -8,10 +6,11 @@ use axum::{
     Router,
 };
 use beam::create_beam_task;
-use beam_lib::{AppId, BeamClient, MsgId};
+use beam_lib::{BeamClient, MsgId};
 use clap::Parser;
+use config::Config;
 use once_cell::sync::Lazy;
-use reqwest::{header, Method, StatusCode, Url};
+use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{CorsLayer, Any};
 use tracing::{info, warn, Level};
@@ -19,32 +18,9 @@ use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
 
 mod banner;
 mod beam;
+mod config;
 
-#[derive(Parser, Clone, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Config {
-    /// URL of the Beam Proxy
-    #[clap(long, env)]
-    beam_proxy_url: Url,
-
-    /// Beam AppId of this application
-    #[clap(long, env, value_parser = |v: &str| Ok::<_, Infallible>(AppId::new_unchecked(v)))]
-    beam_app_id: AppId,
-
-    /// Credentials to use on the Beam Proxy
-    #[clap(long, env)]
-    beam_secret: String,
-
-    /// Optional project name used by focus
-    #[clap(long, env)]
-    project: Option<String>,
-
-    /// The socket address this server will bind to
-    #[clap(long, env, default_value = "0.0.0.0:8080")]
-    bind_addr: SocketAddr,
-}
-
-static CONFIG: Lazy<Config> = Lazy::new(|| Config::parse());
+static CONFIG: Lazy<Config> = Lazy::new(Config::parse);
 
 static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     BeamClient::new(
@@ -67,7 +43,7 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any)
+        .allow_origin(CONFIG.cors_origin.clone())
         .allow_headers([header::CONTENT_TYPE]);
 
     let app = Router::new()
