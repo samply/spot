@@ -5,7 +5,7 @@ This is the Rust re-implementation of Samply.Spot.
 ## API
 
 ### /beam
-The beam endpoint offers the possibility to communicate with the beam proxy through a locally hosted beam-proxy. An example configuration for this is available in the [docker-compose](./docker-compose.yml)
+The `/beam` endpoint provides the ability to communicate with the beam-broker through a locally hosted beam-proxy. An example configuration for this is available in the [docker-compose](./docker-compose.yml)
 #### POST
 With a post to `/beam` you will create a new beam task. You need to send a payload with this structure:
 
@@ -25,7 +25,7 @@ With a post to `/beam` you will create a new beam task. You need to send a paylo
 See the example [call](./docs/create-beam-task.sh) in our docs.
 
 ##### Success
-Then executing the query successfully spot will return a `201` with the beam task id in the location header
+When executing the query successfully, spot will return a `201` status code with the beam task id in the location header
 
 ``` http
 HTTP/1.1 201 Created
