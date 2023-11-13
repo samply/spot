@@ -35,6 +35,10 @@ struct Config {
     #[clap(long, env)]
     beam_secret: String,
 
+    /// Optional project name used by focus
+    #[clap(long, env)]
+    project: Option<String>,
+
     /// The socket address this server will bind to
     #[clap(long, env, default_value = "0.0.0.0:8080")]
     bind_addr: SocketAddr,
