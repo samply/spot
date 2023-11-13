@@ -12,7 +12,7 @@ use config::Config;
 use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
 
@@ -38,7 +38,7 @@ async fn main() {
         .finish()
         .init();
     banner::print_banner();
-    info!(?CONFIG);
+    info!("{:#?}", Lazy::force(&CONFIG));
     // TODO: Add check for reachability of beam-proxy
 
     let cors = CorsLayer::new()
