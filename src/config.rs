@@ -34,7 +34,7 @@ pub struct Config {
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
-    if v == "*" {
+    if v == "*" || v.to_lowercase() == "any" {
         Ok(AllowOrigin::any())
     } else {
         v.parse().map(AllowOrigin::exact)
