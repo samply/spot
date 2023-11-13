@@ -5,3 +5,11 @@ services:
     image: samply/rustyspot
     env_file:
       - env.default
+    ports:
+      - 8100:8100
+    networks:
+      - dev_default
+
+networks:
+  dev_default:
+    external: true
