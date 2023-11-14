@@ -1,105 +1,172 @@
 {
-  "lang": "cql",
-  "lib": {
-    "resourceType": "Library",
-    "url": "urn:uuid:67c8b114-994d-474a-9e20-4e1c1e34a4d0",
-    "status": "active",
-    "type": {
-      "coding": [
-        {
-          "system": "http://terminology.hl7.org/CodeSystem/library-type",
-          "code": "logic-library"
-        }
-      ]
-    },
-    "content": [
-      {
-        "contentType": "text/cql",
-        "data": "bGlicmFyeSBSZXRyaWV2ZQp1c2luZyBGSElSIHZlcnNpb24gJzQuMC4wJwppbmNsdWRlIEZISVJIZWxwZXJzIHZlcnNpb24gJzQuMC4wJwoKY29udGV4dCBQYXRpZW50CgpES1RLX1NUUkFUX0dFTkRFUl9TVFJBVElGSUVSCgpES1RLX1NUUkFUX0RFQ0VBU0VEX1NUUkFUSUZJRVIKCkRLVEtfU1RSQVRfQUdFX1NUUkFUSUZJRVIKCkRLVEtfU1RSQVRfREVGX0lOX0lOSVRJQUxfUE9QVUxBVElPTgp0cnVlCg=="}]
-  },
-  "measure": {
-    "resourceType": "Measure",
-    "url": "urn:uuid:e2a7d5ed-6d0e-45fd-a8e3-56af5d536749",
-    "status": "active",
-    "subjectCodeableConcept": {
-      "coding": [
-        {
-          "system": "http://hl7.org/fhir/resource-types",
-          "code": "Patient"
-        }
-      ]
-    },
-    "library": "urn:uuid:67c8b114-994d-474a-9e20-4e1c1e34a4d0",
-    "scoring": {
-      "coding": [
-        {
-          "system": "http://terminology.hl7.org/CodeSystem/measure-scoring",
-          "code": "cohort"
-        }
-      ]
-    },
-    "group": [
-      {
-        "population": [
-          {
-            "code": {
-              "coding": [
-                {
-                  "system": "http://terminology.hl7.org/CodeSystem/measure-population",
-                  "code": "initial-population"
-                }
-              ]
-            },
-            "criteria": {
-              "language": "text/cql-identifier",
-              "expression": "InInitialPopulation"
-            }
-          }
-        ],
-        "stratifier": [
-          {
-            "code": {
-              "text": "Gender"
-            },
-            "criteria": {
-              "language": "text/cql",
-              "expression": "Gender"
-            }
-          },
-          {
-            "code": {
-              "text": "Deceased"
-            },
-            "criteria": {
-              "language": "text/cql",
-              "expression": "Deceased"
-            }
-          },
-          {
-            "code": {
-              "text": "Age"
-            },
-            "criteria": {
-              "language": "text/cql",
-              "expression": "AgeClass"
-            }
-          },
-          {
-            "code": {
-              "coding": [
-                {
-                  "system": "https://dktk.dkfz.de/fhir/CodeSystem/exliquid-stratifier",
-                  "code": "diagnosis"
-                }
-              ]
-            },
-            "criteria": {
-              "language": "text/cql-identifier",
-              "expression": "Diagnosis"
-            }
-          }
-        ]
-      }
-    ]
-  }
+	"lang": "cql",
+	"lib": {
+		"content": [
+			{
+				"contentType": "text/cql",
+				"data": "bGlicmFyeSBSZXRyaWV2ZQp1c2luZyBGSElSIHZlcnNpb24gJzQuMC4wJwppbmNsdWRlIEZISVJIZWxwZXJzIHZlcnNpb24gJzQuMC4wJwoKY29kZXN5c3RlbSBsb2luYzogJ2h0dHA6Ly9sb2luYy5vcmcnCmNvZGVzeXN0ZW0gaWNkMTA6ICdodHRwOi8vaGw3Lm9yZy9maGlyL3NpZC9pY2QtMTAnCmNvZGVzeXN0ZW0gU2FtcGxlTWF0ZXJpYWxUeXBlOiAnaHR0cHM6Ly9maGlyLmJibXJpLmRlL0NvZGVTeXN0ZW0vU2FtcGxlTWF0ZXJpYWxUeXBlJwoKCmNvbnRleHQgUGF0aWVudAoKQkJNUklfU1RSQVRfR0VOREVSX1NUUkFUSUZJRVIKCkJCTVJJX1NUUkFUX0RFRl9TUEVDSU1FTgppZiBJbkluaXRpYWxQb3B1bGF0aW9uIHRoZW4gW1NwZWNpbWVuXSBlbHNlIHt9IGFzIExpc3Q8U3BlY2ltZW4+CgpCQk1SSV9TVFJBVF9TQU1QTEVfVFlQRV9TVFJBVElGSUVSCgpCQk1SSV9TVFJBVF9DVVNUT0RJQU5fU1RSQVRJRklFUgoKQkJNUklfU1RSQVRfRElBR05PU0lTX1NUUkFUSUZJRVIKCkJCTVJJX1NUUkFUX0FHRV9TVFJBVElGSUVSCgpCQk1SSV9TVFJBVF9ERUZfSU5fSU5JVElBTF9QT1BVTEFUSU9OCnRydWU="
+			}
+		],
+		"resourceType": "Library",
+		"status": "active",
+		"type": {
+			"coding": [
+				{
+					"code": "logic-library",
+					"system": "http://terminology.hl7.org/CodeSystem/library-type"
+				}
+			]
+		},
+		"url": "urn:uuid:7ff532ad-69e4-48ed-a2d3-9efafb609f62"
+	},
+	"measure": {
+		"group": [
+			{
+				"code": {
+					"text": "patients"
+				},
+				"population": [
+					{
+						"code": {
+							"coding": [
+								{
+									"code": "initial-population",
+									"system": "http://terminology.hl7.org/CodeSystem/measure-population"
+								}
+							]
+						},
+						"criteria": {
+							"expression": "InInitialPopulation",
+							"language": "text/cql-identifier"
+						}
+					}
+				],
+				"stratifier": [
+					{
+						"code": {
+							"text": "Gender"
+						},
+						"criteria": {
+							"expression": "Gender",
+							"language": "text/cql"
+						}
+					},
+					{
+						"code": {
+							"text": "Age"
+						},
+						"criteria": {
+							"expression": "AgeClass",
+							"language": "text/cql"
+						}
+					},
+					{
+						"code": {
+							"text": "Custodian"
+						},
+						"criteria": {
+							"expression": "Custodian",
+							"language": "text/cql"
+						}
+					}
+				]
+			},
+			{
+				"code": {
+					"text": "diagnosis"
+				},
+				"extension": [
+					{
+						"url": "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-populationBasis",
+						"valueCode": "Condition"
+					}
+				],
+				"population": [
+					{
+						"code": {
+							"coding": [
+								{
+									"code": "initial-population",
+									"system": "http://terminology.hl7.org/CodeSystem/measure-population"
+								}
+							]
+						},
+						"criteria": {
+							"expression": "Diagnosis",
+							"language": "text/cql-identifier"
+						}
+					}
+				],
+				"stratifier": [
+					{
+						"code": {
+							"text": "diagnosis"
+						},
+						"criteria": {
+							"expression": "DiagnosisCode",
+							"language": "text/cql-identifier"
+						}
+					}
+				]
+			},
+			{
+				"code": {
+					"text": "specimen"
+				},
+				"extension": [
+					{
+						"url": "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-populationBasis",
+						"valueCode": "Specimen"
+					}
+				],
+				"population": [
+					{
+						"code": {
+							"coding": [
+								{
+									"code": "initial-population",
+									"system": "http://terminology.hl7.org/CodeSystem/measure-population"
+								}
+							]
+						},
+						"criteria": {
+							"expression": "Specimen",
+							"language": "text/cql-identifier"
+						}
+					}
+				],
+				"stratifier": [
+					{
+						"code": {
+							"text": "sample_kind"
+						},
+						"criteria": {
+							"expression": "SampleType",
+							"language": "text/cql"
+						}
+					}
+				]
+			}
+		],
+		"library": "urn:uuid:7ff532ad-69e4-48ed-a2d3-9efafb609f62",
+		"resourceType": "Measure",
+		"scoring": {
+			"coding": [
+				{
+					"code": "cohort",
+					"system": "http://terminology.hl7.org/CodeSystem/measure-scoring"
+				}
+			]
+		},
+		"status": "active",
+		"subjectCodeableConcept": {
+			"coding": [
+				{
+					"code": "Patient",
+					"system": "http://hl7.org/fhir/resource-types"
+				}
+			]
+		},
+		"url": "urn:uuid:5ee8de73-347e-47ca-a014-f2e71767adfc"
+	}
 }
