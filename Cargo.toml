@@ -10,7 +10,7 @@ documentation = "https://github.com/samply/spot"
 [dependencies]
 async-sse = "5.1.0"
 async-stream = "0.3.4"
-axum = "0.6.12"
+axum = "0.7.1"
 #axum-macros = "0.3.7"
 clap = { version = "4.2.1", features = ["env", "derive"] }
 futures = "0.3.28"
