@@ -3,7 +3,7 @@ name: Docker
 
 on:
   workflow_run:
-    workflows: [pre-check, rust]
+    workflows: [Rust]
     types: [completed]
     branches: [main]
   workflow_dispatch:
