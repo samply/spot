@@ -46,3 +46,7 @@ curl http://localhost:8100/beam/<some-uuid>
 
 See the example [call](./docs/listen-for-beam-results.sh)
 
+## License
+
+This code is licensed under the Apache License 2.0. For details, please see [LICENSE](./LICENSE)
+
