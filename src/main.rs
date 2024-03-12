@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
     extract::{Json, Path, Query, State},
@@ -105,7 +106,23 @@ struct LensQuery {
 async fn handle_create_beam_task(
     Json(query): Json<LensQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
-    // This should just be inlined not doing it rn because of better git diff
+    if let Some(log_file) = &CONFIG.log_file {
+        #[derive(Serialize)]
+        struct Log<'a> {
+            #[serde(flatten)]
+            query: &'a LensQuery,
+            ts: u64
+        }
+        let json = serde_json::to_vec(&Log {
+            query: &query,
+            ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+        }).expect("Failed to serialize log");
+        tokio::spawn(async move {
+            if let Err(e) = tokio::fs::write(log_file, json).await {
+                warn!("Failed to write to log file: {e}");
+            };
+        });
+    }
     let LensQuery { id, sites, query } = query;
     let task = create_beam_task(id, sites, query);
     BEAM_CLIENT.post_task(&task).await.map_err(|e| {
