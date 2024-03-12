@@ -1,4 +1,4 @@
-use std::{convert::Infallible, net::SocketAddr};
+use std::{convert::Infallible, net::SocketAddr, path::PathBuf};
 
 use beam_lib::AppId;
 use clap::Parser;
@@ -31,6 +31,10 @@ pub struct Config {
     /// The socket address this server will bind to
     #[clap(long, env, default_value = "0.0.0.0:8080")]
     pub bind_addr: SocketAddr,
+
+    /// Path to a file which will contain the query logs
+    #[clap(long, env, value_hint = clap::ValueHint::FilePath)]
+    pub log_file: Option<PathBuf>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
