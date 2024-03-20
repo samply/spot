@@ -5,6 +5,8 @@ services:
     image: samply/rustyspot
     env_file:
       - env.default
+    volumes:
+      - ./target/log.txt:/log.txt
     ports:
       - 8100:8100
     networks:
