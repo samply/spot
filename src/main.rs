@@ -174,7 +174,7 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, result_logger_map: Resu
     struct Log {
         #[serde(flatten)]
         query: LensQuery,
-        ts: u64,
+        ts: u128,
         results: u32
     }
     let (tx, rx) = oneshot::channel();
@@ -183,7 +183,7 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, result_logger_map: Resu
     let mut out = serde_json::to_vec(&Log {
         query,
         results,
-        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
     }).expect("Failed to serialize log");
     out.push('\n' as u8);
     let res = tokio::fs::OpenOptions::new()
