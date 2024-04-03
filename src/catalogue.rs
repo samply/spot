@@ -44,12 +44,7 @@ pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Value {
     let mut counts: CriteriaGroups = prism_resp.json().await
     .expect("Unable to parse response from Prism into CriteriaGroups");
 
-
-    //dbg!(&counts);
-
     recurse(&mut json, &mut counts); //TODO remove from counts once copied into catalogue to make it O(n log n)
-
-    //println!("{}", serde_json::to_string_pretty(&json).unwrap());
 
     info!("Catalogue built successfully.");
 
@@ -79,6 +74,7 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                 let group_key = obj.get("key").expect("Got JSON element with childCategories but without (group) key. Please check json.").as_str()
                 .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
 
+                //TODO consolidate catalogue and MeasureReport group names
                 let group_key = if group_key == "patient" {"patients"} 
                 else if group_key == "tumor_classification" {"diagnosis"} 
                 else if group_key == "biosamples" {"specimen"}
