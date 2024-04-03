@@ -31,6 +31,10 @@ pub struct Config {
     /// The socket address this server will bind to
     #[clap(long, env, default_value = "0.0.0.0:8080")]
     pub bind_addr: SocketAddr,
+
+    /// URL to catalogue.json file
+    #[clap(long, env)]
+    pub catalogue_url: Url
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {

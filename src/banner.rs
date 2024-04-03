@@ -10,7 +10,7 @@ pub(crate) fn print_banner() {
         _ => "SNAPSHOT",
     };
     info!(
-        "🌈 Samply.Spot v{} (built {} {}, {}) starting up ...",
+        "🌈 Samply.Spot v{} (built {} {}, {}) ready to take requests.",
         env!("CARGO_PKG_VERSION"),
         env!("BUILD_DATE"),
         env!("BUILD_TIME"),

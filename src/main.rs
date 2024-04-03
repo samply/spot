@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Json, Path, Query},
+    extract::{Json, Path, Query, State},
     http::HeaderValue,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -12,12 +12,14 @@ use config::Config;
 use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
 
 mod banner;
 mod beam;
+mod catalogue;
 mod config;
 
 static CONFIG: Lazy<Config> = Lazy::new(Config::parse);
@@ -30,6 +32,11 @@ static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     )
 });
 
+#[derive(Clone)]
+struct SharedState {
+    extended_json: Value
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::FmtSubscriber::builder()
@@ -40,9 +47,9 @@ async fn main() {
 
     info!("{:#?}", Lazy::force(&CONFIG));
 
-    
+    let extended_json = catalogue::get_extended_json(CONFIG.catalogue_url.clone()).await;
+    let state = SharedState { extended_json };
 
-    banner::print_banner();
     // TODO: Add check for reachability of beam-proxy
 
     let cors = CorsLayer::new()
@@ -53,8 +60,12 @@ async fn main() {
     let app = Router::new()
         .route("/beam", post(handle_create_beam_task))
         .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
+        .route("/catalogue", get(handle_get_catalogue))
+        .with_state(state)
         .layer(axum::middleware::map_response(banner::set_server_header))
         .layer(cors);
+
+    banner::print_banner();
 
     axum::Server::bind(&CONFIG.bind_addr)
         .serve(app.into_make_service())
@@ -132,4 +143,10 @@ fn convert_response(response: reqwest::Response) -> axum::response::Response {
         // Same goes for this unwrap
         .unwrap()
         .into_response()
+}
+
+async fn handle_get_catalogue(
+    State(state): State<SharedState>
+) -> Json<Value> {
+    Json(state.extended_json)
 }
