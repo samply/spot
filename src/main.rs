@@ -37,8 +37,12 @@ async fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .finish()
         .init();
-    banner::print_banner();
+
     info!("{:#?}", Lazy::force(&CONFIG));
+
+    
+
+    banner::print_banner();
     // TODO: Add check for reachability of beam-proxy
 
     let cors = CorsLayer::new()
