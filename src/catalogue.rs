@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -25,8 +27,13 @@ struct ChildCategory {
 
 pub async fn get_extended_json(catalogue_url: Url) -> Value {
     debug!("Fetching catalogue from {catalogue_url} ...");
-    let resp = reqwest::get(catalogue_url).await
-        .expect("Unable to fetch catalogue from upstream; please check URL specified in config.");
+
+    let resp = reqwest::Client::new()
+    .get(catalogue_url)
+    .timeout(Duration::from_secs(30))
+    .send()
+    .await
+    .expect("Unable to fetch catalogue from upstream; please check URL specified in config.");
 
     let mut json: Value = resp.json().await
         .expect("Unable to parse catalogue from upstream; please check URL specified in config.");
