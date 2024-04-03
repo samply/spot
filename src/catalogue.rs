@@ -1,31 +1,24 @@
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{debug, info};
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-enum ChildCategoryType {
-    Equals,
-    SomethingElse
+pub type Criteria = BTreeMap<String, u64>;
+
+pub type CriteriaGroup = BTreeMap<String, Criteria>;
+
+pub type CriteriaGroups = BTreeMap<String, CriteriaGroup>;
+
+fn get_element<'a>(count: &'a CriteriaGroups, key1: &'a str, key2: &'a str, key3: &'a str) -> Option<&'a u64> {
+    count.get(key1)
+        .and_then(|group| group.get(key2))
+        .and_then(|criteria| criteria.get(key3))
 }
 
-#[derive(Serialize, Deserialize)]
-struct ChildCategoryCriterion {
-    key: String,
-    count: Option<usize>
-}
 
-#[derive(Serialize, Deserialize)]
-struct ChildCategory {
-    key: String,
-    type_: ChildCategoryType,
-    criteria: Vec<ChildCategoryCriterion>
-}
-
-pub async fn get_extended_json(catalogue_url: Url) -> Value {
+pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Value {
     debug!("Fetching catalogue from {catalogue_url} ...");
 
     let resp = reqwest::Client::new()
@@ -38,11 +31,25 @@ pub async fn get_extended_json(catalogue_url: Url) -> Value {
     let mut json: Value = resp.json().await
         .expect("Unable to parse catalogue from upstream; please check URL specified in config.");
 
-    // TODO: Query prism for counts here.
 
-    recurse(&mut json);
+    let prism_resp = reqwest::Client::new()
+    .post(format!("{}criteria", prism_url))
+    .header("Content-Type", "application/json")
+    .body("{\"sites\": []}")
+    .timeout(Duration::from_secs(300))
+    .send()
+    .await
+    .expect("Unable to fetch response from Prism; please check it's running.");
 
-    // println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    let mut counts: CriteriaGroups = prism_resp.json().await
+    .expect("Unable to parse response from Prism into CriteriaGroups");
+
+
+    //dbg!(&counts);
+
+    recurse(&mut json, &mut counts); //TODO remove from counts once copied into catalogue to make it O(n log n)
+
+    //println!("{}", serde_json::to_string_pretty(&json).unwrap());
 
     info!("Catalogue built successfully.");
 
@@ -52,7 +59,7 @@ pub async fn get_extended_json(catalogue_url: Url) -> Value {
 /// Key order: group key (e.g. patient)
 ///            \-- stratifier key (e.g. admin_gender)
 ///                \-- stratum key (e.g. male, other)
-fn recurse(json: &mut Value) {
+fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
     match json {
         Value::Null => (),
         Value::Bool(_) => (),
@@ -60,16 +67,22 @@ fn recurse(json: &mut Value) {
         Value::String(_) => (),
         Value::Array(arr) => {
             for ele in arr {
-                recurse(ele);
+                recurse(ele, counts);
             }
         },
         Value::Object(obj) => {
             if ! obj.contains_key("childCategories") {
                 for (_key, child_val) in obj.iter_mut() {
-                    recurse(child_val);
+                    recurse(child_val, counts);
                 }
             } else {
-                let group_key = obj.get("key").expect("Got JSON element with childCategories but without (group) key. Please check json.");
+                let group_key = obj.get("key").expect("Got JSON element with childCategories but without (group) key. Please check json.").as_str()
+                .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
+
+                let group_key = if group_key == "patient" {"patients"} 
+                else if group_key == "tumor_classification" {"diagnosis"} 
+                else if group_key == "biosamples" {"specimen"}
+                else {&group_key};
 
                 let children_cats = obj
                     .get_mut("childCategories")
@@ -80,7 +93,9 @@ fn recurse(json: &mut Value) {
                     .filter(|item| item.get("type").unwrap_or(&Value::Null) == "EQUALS");
                 
                 for child_cat in children_cats {
-                    let stratifier_key = child_cat.get("key").expect("Got JSON element with childCategory that does not contain a (stratifier) key. Please check json.");
+                    let stratifier_key = child_cat.get("key").expect("Got JSON element with childCategory that does not contain a (stratifier) key. Please check json.").as_str()
+                    .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
+
                     let criteria = child_cat
                         .get_mut("criteria")
                         .expect("Got JSON element with childCategory that does not contain a criteria array. Please check json.")
@@ -95,10 +110,16 @@ fn recurse(json: &mut Value) {
                             .as_str()
                             .expect("Got JSON where a criterion key was not a string. Please check json.");
                         
-                        // fetch from Prism output
-                        let count_from_prism = 10;
+                        let count_from_prism = get_element(counts, &group_key, &stratifier_key, stratum_key);
 
-                        criterion.insert("count".into(), json!(count_from_prism));
+                        match count_from_prism {
+                            Some(count) => {
+                                criterion.insert("count".into(), json!(count));
+                            },
+                            None => {
+                                debug!("No count from Prism for {}, {}, {}", group_key, stratifier_key, stratum_key);
+                            }
+                        }                        
                     }
                 }
             }

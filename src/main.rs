@@ -47,7 +47,7 @@ async fn main() {
 
     info!("{:#?}", Lazy::force(&CONFIG));
 
-    let extended_json = catalogue::get_extended_json(CONFIG.catalogue_url.clone()).await;
+    let extended_json = catalogue::get_extended_json(CONFIG.catalogue_url.clone(), CONFIG.prism_url.clone()).await;
     let state = SharedState { extended_json };
 
     // TODO: Add check for reachability of beam-proxy
