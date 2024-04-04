@@ -34,7 +34,7 @@ pub struct Config {
 
     /// URL to catalogue.json file
     #[clap(long, env)]
-    pub catalogue_url: Url,
+    pub catalogue_url: Option<Url>,
 
     /// URL to prism
     #[clap(long, env, default_value= "http://localhost:8066")]
