@@ -2,36 +2,23 @@
 name: Docker
 
 on:
-  workflow_run:
-    workflows: [Rust]
-    types: [completed]
+  push:
     branches: [main]
   workflow_dispatch:
+  pull_request:
 
 jobs:
   docker:
     # This workflow defines how a maven package is built, tested and published.
     # Visit: https://github.com/samply/github-workflows/blob/develop/.github/workflows/docker-ci.yml, for more information
-    uses: samply/github-workflows/.github/workflows/docker-ci.yml@main
+    uses: samply/github-workflows/.github/workflows/rust.yml@main
     with:
-      # The Docker Hub Repository you want eventually push to, e.g samply/share-client
-      image-name: "samply/rustyspot"
-      # image-tag-suffix: ${{ matrix.features && format('-{0}', matrix.features) }}
-      # Define special prefixes for docker tags. They will prefix each images tag.
-      # image-tag-prefix: "foo"
-      # Define the build context of your image, typically default '.' will be enough
-      # build-context: '.'
-      # Define the Dockerfile of your image, typically default './Dockerfile' will be enough
-      build-file: './Dockerfile'
-      # NOTE: This doesn't work currently
-      # A list of build arguments, passed to the docker build
-      # build-args: |
-      #   FEATURE=-${{ matrix.features }}
-      # Define the target platforms of the docker build (default "linux/amd64,linux/arm64/v8")
-      # build-platforms: "linux/amd64"
-      # If your actions generate an artifact in a previous build step, you can tell this workflow to download it
-      # artifact-name: '*'
-      push-to: dockerhub
+      # For information on these variables, please refer to https://github.com/samply/github-workflows/tree/main/.github/workflows/rust.yml
+      # Docker Hub name will be {image-prefix}{component}
+      image-prefix: "samply/"
+      components: '[ "rustyspot" ]'
+      #architectures: '[ "amd64" ]'
+      push-to: ${{ (github.ref_protected == true || github.event_name == 'workflow_dispatch') && 'dockerhub' || 'ghcr' }}
     # This passes the secrets from calling workflow to the called workflow
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
