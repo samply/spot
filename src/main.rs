@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
-use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
+use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
 
 mod banner;
 mod beam;
@@ -34,7 +34,7 @@ static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
 
 #[derive(Clone)]
 struct SharedState {
-    extended_json: Value
+    extended_json: Value,
 }
 
 #[tokio::main]
@@ -47,7 +47,8 @@ async fn main() {
 
     info!("{:#?}", Lazy::force(&CONFIG));
 
-    let extended_json = catalogue::get_extended_json(CONFIG.catalogue_url.clone(), CONFIG.prism_url.clone()).await;
+    let extended_json =
+        catalogue::get_extended_json(CONFIG.catalogue_url.clone(), CONFIG.prism_url.clone()).await;
     let state = SharedState { extended_json };
 
     // TODO: Add check for reachability of beam-proxy
@@ -117,7 +118,10 @@ async fn handle_listen_to_beam_tasks(
         .send()
         .await
         .map_err(|err| {
-            println!("Failed request to {} with error: {}", CONFIG.beam_proxy_url, err);
+            println!(
+                "Failed request to {} with error: {}",
+                CONFIG.beam_proxy_url, err
+            );
             (
                 StatusCode::BAD_GATEWAY,
                 format!("Error calling beam, check the server logs."),
@@ -145,8 +149,6 @@ fn convert_response(response: reqwest::Response) -> axum::response::Response {
         .into_response()
 }
 
-async fn handle_get_catalogue(
-    State(state): State<SharedState>
-) -> Json<Value> {
+async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
     Json(state.extended_json)
 }
