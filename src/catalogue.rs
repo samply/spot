@@ -56,16 +56,13 @@ pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Value {
 ///                \-- stratum key (e.g. male, other)
 fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
     match json {
-        Value::Null => (),
-        Value::Bool(_) => (),
-        Value::Number(_) => (),
-        Value::String(_) => (),
         Value::Array(arr) => {
             for ele in arr {
                 recurse(ele, counts);
             }
         },
         Value::Object(obj) => {
+            
             if ! obj.contains_key("childCategories") {
                 for (_key, child_val) in obj.iter_mut() {
                     recurse(child_val, counts);
@@ -120,5 +117,6 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                 }
             }
         },
+        _ => {}
     }
 }
