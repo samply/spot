@@ -48,6 +48,13 @@ async fn main() {
         .finish()
         .init();
 
+    // TODO: Remove this workaround once clap manages to not choke on URL "".
+    if let Ok(var) = std::env::var("CATALOGUE_URL") {
+        if var.is_empty() {
+            std::env::remove_var("CATALOGUE_URL");
+        }
+    }
+
     info!("{:#?}", Lazy::force(&CONFIG));
 
     let cors = CorsLayer::new()
