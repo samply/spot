@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Json, Path, Query, State},
     http::HeaderValue,
@@ -13,6 +15,7 @@ use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
@@ -34,7 +37,7 @@ static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
 
 #[derive(Clone)]
 struct SharedState {
-    extended_json: Value,
+    extended_json: Arc<Mutex<Value>>,
 }
 
 #[tokio::main]
@@ -45,6 +48,13 @@ async fn main() {
         .finish()
         .init();
 
+    // TODO: Remove this workaround once clap manages to not choke on URL "".
+    if let Ok(var) = std::env::var("CATALOGUE_URL") {
+        if var.is_empty() {
+            std::env::remove_var("CATALOGUE_URL");
+        }
+    }
+
     info!("{:#?}", Lazy::force(&CONFIG));
 
     let cors = CorsLayer::new()
@@ -53,7 +63,7 @@ async fn main() {
         .allow_headers([header::CONTENT_TYPE]);
 
     let make_service = if let Some(url) = CONFIG.catalogue_url.clone() {
-        let extended_json = catalogue::get_extended_json(url, CONFIG.prism_url.clone()).await;
+        let extended_json = catalogue::spawn_thing(url, CONFIG.prism_url.clone());
         let state = SharedState { extended_json };
 
         let app = Router::new()
@@ -161,5 +171,6 @@ fn convert_response(response: reqwest::Response) -> axum::response::Response {
 }
 
 async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
-    Json(state.extended_json)
+    // TODO: We can totally avoid this clone by using axum_extra ErasedJson
+    Json(state.extended_json.lock().await.clone())
 }

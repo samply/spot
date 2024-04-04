@@ -1,8 +1,9 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use reqwest::Url;
 use serde_json::{json, Value};
-use tracing::{debug, info};
+use tokio::sync::Mutex;
+use tracing::{debug, info, warn};
 
 pub type Criteria = BTreeMap<String, u64>;
 
@@ -16,21 +17,40 @@ fn get_element<'a>(count: &'a CriteriaGroups, key1: &'a str, key2: &'a str, key3
         .and_then(|criteria| criteria.get(key3))
 }
 
+pub fn spawn_thing(catalogue_url: Url, prism_url: Url) -> Arc<Mutex<Value>> {
+    let thing: Arc<Mutex<Value>> = Arc::default();
+    let thing1 = thing.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(10)).await;    
+        loop {
+            match get_extended_json(catalogue_url.clone(), prism_url.clone()).await {
+                Ok(new_value) => {
+                    *thing1.lock().await = new_value;
+                    info!("Updated Catalogue!");
+                    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+                },
+                Err(err) => {
+                    warn!("Failed to get thing: {err}.\n Retrying in 5s.");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                },
+            }
+        }
+    });
 
-pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Value {
+    thing
+}
+
+pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Result<Value, reqwest::Error> {
     debug!("Fetching catalogue from {catalogue_url} ...");
 
     let resp = reqwest::Client::new()
         .get(catalogue_url)
         .timeout(Duration::from_secs(30))
         .send()
-        .await
-        .expect("Unable to fetch catalogue from upstream; please check URL specified in config.");
+        .await?;
 
-    let mut json: Value = resp.json().await
-        .expect("Unable to parse catalogue from upstream; please check URL specified in config.");
+    let mut json: Value = resp.json().await?;
 
-//    tokio::time::sleep(Duration::from_secs(10)).await;    
 
     let prism_resp = reqwest::Client::new()
         .post(format!("{}criteria", prism_url))
@@ -38,17 +58,15 @@ pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Value {
         .body("{\"sites\": []}")
         .timeout(Duration::from_secs(300))
         .send()
-        .await
-        .expect("Unable to fetch response from Prism; please check it's running.");
+        .await?;
 
-    let mut counts: CriteriaGroups = prism_resp.json().await
-        .expect("Unable to parse response from Prism into CriteriaGroups");
+    let mut counts: CriteriaGroups = prism_resp.json().await?;
 
     recurse(&mut json, &mut counts); //TODO remove from counts once copied into catalogue to make it O(n log n)
 
     info!("Catalogue built successfully.");
 
-    json
+    Ok(json)
 }
 
 /// Key order: group key (e.g. patient)
