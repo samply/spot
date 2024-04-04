@@ -47,29 +47,40 @@ async fn main() {
 
     info!("{:#?}", Lazy::force(&CONFIG));
 
-    let extended_json =
-        catalogue::get_extended_json(CONFIG.catalogue_url.clone(), CONFIG.prism_url.clone()).await;
-    let state = SharedState { extended_json };
-
-    // TODO: Add check for reachability of beam-proxy
-
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_origin(CONFIG.cors_origin.clone())
         .allow_headers([header::CONTENT_TYPE]);
 
-    let app = Router::new()
-        .route("/beam", post(handle_create_beam_task))
-        .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
-        .route("/catalogue", get(handle_get_catalogue))
-        .with_state(state)
-        .layer(axum::middleware::map_response(banner::set_server_header))
-        .layer(cors);
+    let make_service = if let Some(url) = CONFIG.catalogue_url.clone() {
+        let extended_json = catalogue::get_extended_json(url, CONFIG.prism_url.clone()).await;
+        let state = SharedState { extended_json };
+
+        let app = Router::new()
+            .route("/beam", post(handle_create_beam_task))
+            .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
+            .route("/catalogue", get(handle_get_catalogue))
+            .with_state(state)
+            .layer(axum::middleware::map_response(banner::set_server_header))
+            .layer(cors);
+
+        app.into_make_service()
+    } else {
+        let app = Router::new()
+            .route("/beam", post(handle_create_beam_task))
+            .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
+            .layer(axum::middleware::map_response(banner::set_server_header))
+            .layer(cors);
+
+        app.into_make_service()
+    };
+
+    // TODO: Add check for reachability of beam-proxy
 
     banner::print_banner();
 
     axum::Server::bind(&CONFIG.bind_addr)
-        .serve(app.into_make_service())
+        .serve(make_service)
         .await
         .unwrap();
 }
