@@ -20,7 +20,7 @@ pub struct Config {
     #[clap(long, env)]
     pub beam_secret: String,
 
-    /// Credentials to use on the Beam Proxy
+    /// Where to allow cross-origin resourse sharing from
     #[clap(long, env, value_parser = parse_cors)]
     pub cors_origin: AllowOrigin,
 
