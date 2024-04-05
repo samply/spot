@@ -5,7 +5,7 @@ This is the Rust re-implementation of Samply.Spot.
 ## Local setup
 Spot can be run locally with the provided [docker-compose](./docker-compose.yml) which requires a running beam installation. This can be done by cloning the [beam repository](https://github.com/samply/beam) and running `./dev/beamdev demo`
 
-Spot can also be run from command line stating command parameters, like so:
+Spot can also be run from command line stating command line parameters, like so:
 ```bash
 cargo run -- --beam-proxy-url http://localhost:8081 --beam-app-id app1.proxy1.broker --beam-secret App1Secret --cors-origin any --bind-addr 127.0.0.1:8055 --catalogue-url https://raw.githubusercontent.com/samply/lens/main/packages/demo/public/catalogues/catalogue-dktk.json
 ```
