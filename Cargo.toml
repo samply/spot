@@ -20,7 +20,7 @@ once_cell = "1"
 # Logging
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-reqwest = { version = "0.11.20", default-features = false, features = ["stream", "default-tls"] }
+reqwest = { version = "0.12.3", default-features = false, features = ["stream", "default-tls"] }
 tower-http = { version = "0.4.4", features = ["cors"] }
 
 [build-dependencies]
