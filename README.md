@@ -83,7 +83,7 @@ See the example [call](./docs/listen-for-beam-results.sh)
 curl http://localhost:8100/catalogue
 ```
 
-Returns JSON catalogue of search criteria and the expected number of results in sites configured in Samply/Prism. 
+Returns JSON catalogue of search criteria along with metadata fetched from Samply.Prism (see [Prism's repository](https://github.com/samply/prism) for a list of metadata fields).
 
 
 ## License
