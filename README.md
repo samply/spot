@@ -2,6 +2,8 @@
 
 This is the Rust re-implementation of Samply.Spot.
 
+Test if github ci works
+
 ## Local setup
 Spot can be run locally with the provided [docker-compose](./docker-compose.yml) which requires a running beam installation. This can be done by cloning the [beam repository](https://github.com/samply/beam) and running `./dev/beamdev demo`
 
