@@ -1,6 +1,6 @@
 use axum::{
     extract::{Json, Path, Query, State},
-    http::HeaderValue,
+    http::{HeaderMap, HeaderValue},
     response::{sse::Event, IntoResponse, Sse},
     routing::{get, post},
     Router
@@ -100,10 +100,11 @@ struct LensQuery {
 
 async fn handle_create_beam_task(
     State(SharedState { result_log_sender_map, .. }): State<SharedState>,
+    headers: HeaderMap,
     Json(query): Json<LensQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
     if let Some(log_file) = &CONFIG.log_file {
-        tokio::spawn(log_query(log_file, query.clone(), result_log_sender_map));
+        tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
     }
     let LensQuery { id, sites, query } = query;
     let task = create_beam_task(id, sites, query);
@@ -169,9 +170,10 @@ async fn handle_listen_to_beam_tasks(
     Ok(Sse::new(stream))
 }
 
-async fn log_query(log_file: &PathBuf, query: LensQuery, result_logger_map: ResultLogSenderMap) {
+async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, result_logger_map: ResultLogSenderMap) {
     #[derive(Serialize)]
     struct Log {
+        user_email: String,
         #[serde(flatten)]
         query: LensQuery,
         ts: u128,
@@ -180,7 +182,14 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, result_logger_map: Resu
     let (tx, rx) = oneshot::channel();
     result_logger_map.lock().await.insert(query.id, tx);
     let results = rx.await.expect("Sender is never dropped");
+    let user_email = headers
+        .get("x-auth-request-email")
+        .unwrap_or(&HeaderValue::from_static("Unknown user"))
+        .to_str()
+        .expect("Should be a valid string")
+        .to_owned();
     let mut out = serde_json::to_vec(&Log {
+        user_email,
         query,
         results,
         ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
