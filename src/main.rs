@@ -18,7 +18,7 @@ use serde_json::Value;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
-use tokio::{io::AsyncWriteExt, sync::{oneshot, Mutex}};
+use tokio::{io::AsyncWriteExt, sync::{mpsc, Mutex}};
 use futures_util::{TryFutureExt, TryStreamExt};
 
 mod banner;
@@ -36,7 +36,7 @@ static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     )
 });
 
-type ResultLogSenderMap = Arc<Mutex<HashMap<MsgId, oneshot::Sender<u32>>>>;
+type ResultLogSenderMap = Arc<Mutex<HashMap<MsgId, mpsc::Sender<String>>>>;
 
 #[derive(Clone, Default)]
 struct SharedState {
@@ -146,27 +146,29 @@ async fn handle_listen_to_beam_tasks(
             );
             (
                 StatusCode::BAD_GATEWAY,
-                format!("Error calling beam, check the server logs."),
+                "Error calling beam, check the server logs.".to_owned(),
             )
         })?;
     let code = resp.status();
     if !code.is_success() {
         return Err((code, resp.text().await.unwrap_or_else(|e| e.to_string())));
     }
-    let counter = Counter {
-        value: Default::default(),
-        sender: result_log_sender_map.lock().await.remove(&task_id),
-    };
-    let stream = async_sse::decode(resp.bytes_stream().map_err(|e| io::Error::new(io::ErrorKind::Other, e)).into_async_read())
-        .map_ok(move |event| match event {
-            async_sse::Event::Retry(_) => unreachable!("Beam does not send retries!"),
-            async_sse::Event::Message(m) => {
-                if serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data()).is_ok_and(|v| v.status == beam_lib::WorkStatus::Succeeded) {
-                    counter.value.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-                Event::default().data(String::from_utf8_lossy(m.data())).event(m.name())
-            },
-        });
+    let sender =  result_log_sender_map.lock().await.remove(&task_id).ok_or_else(|| (StatusCode::NOT_FOUND, String::new()))?;
+    let stream = async_sse::decode(resp.bytes_stream().map_err(io::Error::other).into_async_read())
+        .and_then(move |event| {
+            let sender = sender.clone();
+            async move { match event {
+                async_sse::Event::Retry(_) => unreachable!("Beam does not send retries!"),
+                async_sse::Event::Message(m) => {
+                    if let Ok(result) = serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data()) {
+                        if result.status == beam_lib::WorkStatus::Succeeded {
+                            sender.send(result.from.as_ref().split('.').nth(2).unwrap().to_owned()).await.expect("not dropped");
+                        }
+                    }
+                    Ok(Event::default().data(String::from_utf8_lossy(m.data())).event(m.name()))
+                },
+            }
+        }});
     Ok(Sse::new(stream))
 }
 
@@ -177,11 +179,14 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         #[serde(flatten)]
         query: LensQuery,
         ts: u128,
-        results: u32
+        results: Vec<String>
     }
-    let (tx, rx) = oneshot::channel();
+    let (tx, mut rx) = mpsc::channel(query.sites.len());
     result_logger_map.lock().await.insert(query.id, tx);
-    let results = rx.await.expect("Sender is never dropped");
+    let mut results = Vec::with_capacity(query.sites.len());
+    while let Some(result) = rx.recv().await {
+        results.push(result);
+    }
     let user_email = headers
         .get("x-auth-request-email")
         .unwrap_or(&HeaderValue::from_static("Unknown user"))
@@ -194,7 +199,7 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         results,
         ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
     }).expect("Failed to serialize log");
-    out.push('\n' as u8);
+    out.push(b'\n');
     let res = tokio::fs::OpenOptions::new()
         .append(true)
         .open(log_file)
@@ -203,21 +208,6 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
     if let Err(e) = res {
         warn!("Failed to write to log file: {e}");
     };
-}
-
-struct Counter {
-    value: std::sync::Arc<std::sync::atomic::AtomicU32>,
-    sender: Option<oneshot::Sender<u32>>,
-}
-
-impl Drop for Counter {
-    fn drop(&mut self) {
-        let received = self.value.load(std::sync::atomic::Ordering::Relaxed);
-        info!("Received {} results.", received);
-        if let Some(s) = self.sender.take() {
-            _ = s.send(received);
-        }
-    }
 }
 
 async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
