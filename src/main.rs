@@ -172,7 +172,7 @@ async fn handle_listen_to_beam_tasks(
                 async_sse::Event::Message(m) => {
                     if let Ok(result) = serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data()) {
                         if result.status == beam_lib::WorkStatus::Succeeded {
-                            sender.send(result.from.as_ref().split('.').nth(2).unwrap().to_owned()).await.expect("not dropped");
+                            sender.send(result.from.as_ref().split('.').nth(1).unwrap().to_owned()).await.expect("not dropped");
                         }
                     }
                     Ok(Event::default().data(String::from_utf8_lossy(m.data())).event(m.name()))
