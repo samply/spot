@@ -1,4 +1,4 @@
-use std::{convert::Infallible, net::SocketAddr};
+use std::{convert::Infallible, net::SocketAddr, path::PathBuf};
 
 use beam_lib::AppId;
 use clap::Parser;
@@ -38,7 +38,11 @@ pub struct Config {
 
     /// URL to prism
     #[clap(long, env, default_value= "http://localhost:8066")]
-    pub prism_url: Url
+    pub prism_url: Url,
+
+    /// Path to a file which will contain the query logs
+    #[clap(long, env, value_hint = clap::ValueHint::FilePath)]
+    pub log_file: Option<PathBuf>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
