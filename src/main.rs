@@ -20,11 +20,13 @@ use tracing::{info, warn, Level};
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
 use tokio::{io::AsyncWriteExt, sync::{mpsc, Mutex}};
 use futures_util::{TryFutureExt, TryStreamExt};
+use health::{BeamStatus, HealthOutput, Verdict};
 
 mod banner;
 mod beam;
 mod catalogue;
 mod config;
+mod health;
 
 static CONFIG: Lazy<Config> = Lazy::new(Config::parse);
 
@@ -67,6 +69,7 @@ async fn main() {
         .allow_headers([header::CONTENT_TYPE]);
     
     let mut app = Router::new()
+        .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
         .route("/beam/:task_id", get(handle_listen_to_beam_tasks));
 
@@ -96,6 +99,13 @@ struct LensQuery {
     id: MsgId,
     sites: Vec<String>,
     query: String,
+}
+
+async fn handler_health() -> Json<HealthOutput> {
+    Json(HealthOutput {
+        summary: Verdict::Healthy,
+        beam: BeamStatus::Ok
+    })
 }
 
 async fn handle_create_beam_task(
