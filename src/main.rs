@@ -163,7 +163,10 @@ async fn handle_listen_to_beam_tasks(
     if !code.is_success() {
         return Err((code, resp.text().await.unwrap_or_else(|e| e.to_string())));
     }
-    let sender =  result_log_sender_map.lock().await.remove(&task_id).ok_or_else(|| (StatusCode::NOT_FOUND, String::new()))?;
+    let sender =  result_log_sender_map.lock().await.remove(&task_id);
+    if sender.is_none() && CONFIG.log_file.is_some() {
+        warn!("Logging is enabled but no log sender found for logging results.");
+    }
     let stream = async_sse::decode(resp.bytes_stream().map_err(io::Error::other).into_async_read())
         .and_then(move |event| {
             let sender = sender.clone();
@@ -172,7 +175,9 @@ async fn handle_listen_to_beam_tasks(
                 async_sse::Event::Message(m) => {
                     if let Ok(result) = serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data()) {
                         if result.status == beam_lib::WorkStatus::Succeeded {
-                            sender.send(result.from.as_ref().split('.').nth(1).unwrap().to_owned()).await.expect("not dropped");
+                            if let Some(sender) = sender {
+                                sender.send(result.from.as_ref().split('.').nth(1).unwrap().to_owned()).await.expect("not dropped");
+                            }
                         }
                     }
                     Ok(Event::default().data(String::from_utf8_lossy(m.data())).event(m.name()))
