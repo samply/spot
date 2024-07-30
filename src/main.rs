@@ -53,8 +53,8 @@ async fn main() {
     
     let mut app = Router::new()
         .route("/health", get(handler_health))
-        .route("/beam", post(handle_create_beam_task))
-        .route("/beam/:task_id", get(handle_listen_to_beam_tasks));
+        .route("/tasks", post(handle_create_beam_task))
+        .route("/tasks/:task_id", get(handle_listen_to_beam_tasks));
 
     let app = app
         .layer(axum::middleware::map_response(banner::set_server_header))
