@@ -1,9 +1,5 @@
 use axum::{
-    extract::{Json, Path, Query, State},
-    http::{HeaderMap, HeaderValue},
-    response::{sse::Event, IntoResponse, Sse},
-    routing::{get, post},
-    Router
+    body::Bytes, extract::{Json, Path, Query, State}, http::{HeaderMap, HeaderValue}, response::{sse::Event, IntoResponse, Sse}, routing::{get, post}, Router
 };
 use mini_moka::sync::Cache;
 use std::{convert::Infallible, sync::Arc, time::Duration};
@@ -88,8 +84,9 @@ async fn handler_health() -> Json<HealthOutput> {
 
 async fn handle_create_beam_task(
     State(SharedState { results }): State<SharedState>,
-    Json(query): Json<LensQuery>,
+    body: Bytes,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let query = serde_json::from_slice(&body).map_err(|_| StatusCode::BAD_REQUEST)?;
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CqlQuery {
         pub lib: Value,
