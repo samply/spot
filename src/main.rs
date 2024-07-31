@@ -39,6 +39,10 @@ async fn main() {
         .init();
     banner::print_banner();
     info!("{:#?}", Lazy::force(&CONFIG));
+
+    // Print the CORS origin
+    info!("main: CORS origin: {:?}", CONFIG.cors_origin);
+
     // TODO: Add check for reachability of beam-proxy
 
     let cors = CorsLayer::new()

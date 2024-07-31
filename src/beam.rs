@@ -1,5 +1,6 @@
 use beam_lib::{TaskRequest, AppId, RawString};
 use crate::CONFIG;
+use tracing::{info, warn, Level};
 
 pub fn create_beam_task(
     id: beam_lib::MsgId,
@@ -16,6 +17,10 @@ pub fn create_beam_task(
     } else {
         serde_json::Value::Null
     };
+
+    // Print the query
+    info!("create_beam_task: running query");
+
     TaskRequest {
         id,
         from: CONFIG.beam_app_id.clone(),
