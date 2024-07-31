@@ -1,4 +1,4 @@
-use std::{convert::Infallible, net::SocketAddr};
+use std::{convert::Infallible, net::SocketAddr, path::PathBuf};
 
 use beam_lib::AppId;
 use clap::Parser;
@@ -20,7 +20,7 @@ pub struct Config {
     #[clap(long, env)]
     pub beam_secret: String,
 
-    /// Credentials to use on the Beam Proxy
+    /// Where to allow cross-origin resourse sharing from
     #[clap(long, env, value_parser = parse_cors)]
     pub cors_origin: AllowOrigin,
 
@@ -29,8 +29,20 @@ pub struct Config {
     pub project: Option<String>,
 
     /// The socket address this server will bind to
-    #[clap(long, env, default_value = "0.0.0.0:8080")]
+    #[clap(long, env, default_value = "0.0.0.0:8055")]
     pub bind_addr: SocketAddr,
+
+    /// URL to catalogue.json file
+    #[clap(long, env)]
+    pub catalogue_url: Option<Url>,
+
+    /// URL to prism
+    #[clap(long, env, default_value= "http://localhost:8066")]
+    pub prism_url: Url,
+
+    /// Path to a file which will contain the query logs
+    #[clap(long, env, value_hint = clap::ValueHint::FilePath)]
+    pub log_file: Option<PathBuf>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {

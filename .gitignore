@@ -2,3 +2,6 @@
 docker-compose.override.yml
 target/
 Cargo.lock
+
+*.priv.pem
+docker-compose.override.yml
