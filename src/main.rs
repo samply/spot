@@ -1,7 +1,7 @@
 use axum::{
     body::Bytes,
     extract::{Json, Path, Query, State},
-    http::{HeaderMap, HeaderValue},
+    http::{uri::{self, PathAndQuery}, HeaderMap, HeaderValue, Uri},
     response::{sse::Event, IntoResponse, Sse},
     routing::{get, post},
     Router,
@@ -54,6 +54,11 @@ impl SharedState {
     }
 }
 
+async fn default_route(uri: Uri) -> (StatusCode, String) {
+    info!(%uri);
+    (StatusCode::NOT_FOUND, format!("Not route found"))
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::FmtSubscriber::builder()
@@ -71,8 +76,10 @@ async fn main() {
 
     let mut app = Router::new()
         .route("/health", get(handler_health))
+        .route("/backend/health", get(handler_health))
         .route("/tasks", post(handle_create_beam_task))
-        .route("/tasks/:task_id", get(handle_listen_to_beam_tasks));
+        .route("/tasks/:task_id", get(handle_listen_to_beam_tasks))
+        .fallback(default_route);
 
     let app = app
         .layer(axum::middleware::map_response(banner::set_server_header))
