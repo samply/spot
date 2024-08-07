@@ -18,7 +18,7 @@ use serde_json::Value;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
-use tokio::{io::AsyncWriteExt, sync::{mpsc, Mutex}};
+use tokio::{io::AsyncWriteExt, net::TcpListener, sync::{mpsc, Mutex}};
 use futures_util::{TryFutureExt, TryStreamExt};
 use health::{BeamStatus, HealthOutput, Verdict};
 
@@ -90,8 +90,7 @@ async fn main() {
 
     banner::print_banner();
 
-    axum::Server::bind(&CONFIG.bind_addr)
-        .serve(app.into_make_service())
+    axum::serve(TcpListener::bind(CONFIG.bind_addr).await.unwrap(), app.into_make_service())
         .await
         .unwrap();
 }
