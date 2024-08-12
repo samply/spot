@@ -9,7 +9,15 @@ pub fn create_beam_task(
 ) -> TaskRequest<RawString> {
     let proxy_id = CONFIG.beam_app_id.proxy_id();
     let broker_id = proxy_id.as_ref().split_once('.').expect("Invalid beam id in config").1;
-    let to = target_sites.into_iter().map(|site| AppId::new_unchecked(format!("focus.{site}.{broker_id}"))).collect();
+    // let to = target_sites.into_iter().map(|site| AppId::new_unchecked(format!("focus.{site}.{broker_id}"))).collect();
+    let to: Vec<AppId> = target_sites
+        .into_iter()
+        .map(|site| AppId::new_unchecked(format!("focus.{site}.{broker_id}")))
+        .collect();
+
+    // Log the `to` variable
+    info!("create_beam_task: `to` contains the following AppIds: {:?}", to);
+
     let metadata = if let Some(project) = &CONFIG.project {
         serde_json::json!({
             "project": project

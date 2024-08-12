@@ -117,12 +117,18 @@ async fn handle_create_beam_task(
     if let Some(log_file) = &CONFIG.log_file {
         tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
     }
+
+    info!("handle_create_beam_task: entered");
+
     let LensQuery { id, sites, query } = query;
     let task = create_beam_task(id, sites, query);
     BEAM_CLIENT.post_task(&task).await.map_err(|e| {
         warn!("Unable to query Beam.Proxy: {}", e);
         (StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy")
     })?;
+
+    info!("handle_create_beam_task: set Ok");
+
     Ok(StatusCode::CREATED)
 }
 
@@ -136,6 +142,9 @@ async fn handle_listen_to_beam_tasks(
     Query(listen_query_parameter): Query<ListenQueryParameters>,
     State(SharedState { result_log_sender_map, .. }): State<SharedState>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+
+    info!("handle_listen_to_beam_tasks: entered");
+
     let resp = BEAM_CLIENT
         .raw_beam_request(
             Method::GET,
@@ -160,23 +169,44 @@ async fn handle_listen_to_beam_tasks(
                 "Error calling beam, check the server logs.".to_owned(),
             )
         })?;
+
+    info!("handle_listen_to_beam_tasks: code");
+
     let code = resp.status();
     if !code.is_success() {
         return Err((code, resp.text().await.unwrap_or_else(|e| e.to_string())));
     }
+
+    info!("handle_listen_to_beam_tasks: sender");
+
     let sender =  result_log_sender_map.lock().await.remove(&task_id);
     if sender.is_none() && CONFIG.log_file.is_some() {
         warn!("Logging is enabled but no log sender found for logging results.");
     }
+
+    info!("handle_listen_to_beam_tasks: stream");
+
     let stream = async_sse::decode(resp.bytes_stream().map_err(io::Error::other).into_async_read())
         .and_then(move |event| {
             let sender = sender.clone();
             async move { match event {
                 async_sse::Event::Retry(_) => unreachable!("Beam does not send retries!"),
                 async_sse::Event::Message(m) => {
+
+                    info!("handle_listen_to_beam_tasks: if let Ok(result)");
+
                     if let Ok(result) = serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data()) {
+
+                        info!("handle_listen_to_beam_tasks: if result.status");
+
                         if result.status == beam_lib::WorkStatus::Succeeded {
+
+                            info!("handle_listen_to_beam_tasks: if let Some(sender)");
+
                             if let Some(sender) = sender {
+
+                                info!("handle_listen_to_beam_tasks: sender.send");
+
                                 sender.send(result.from.as_ref().split('.').nth(1).unwrap().to_owned()).await.expect("not dropped");
                             }
                         }
@@ -185,6 +215,9 @@ async fn handle_listen_to_beam_tasks(
                 },
             }
         }});
+
+    info!("handle_listen_to_beam_tasks: done");
+
     Ok(Sse::new(stream))
 }
 
@@ -197,6 +230,9 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         ts: u128,
         results: Vec<String>
     }
+
+    info!("log_query: entered");
+
     let (tx, mut rx) = mpsc::channel(query.sites.len());
     result_logger_map.lock().await.insert(query.id, tx);
     let mut results = Vec::with_capacity(query.sites.len());

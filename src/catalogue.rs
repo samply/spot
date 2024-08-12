@@ -42,6 +42,7 @@ pub fn spawn_thing(catalogue_url: Url, prism_url: Url) -> Arc<Mutex<Value>> {
 
 pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Result<Value, reqwest::Error> {
     debug!("Fetching catalogue from {catalogue_url} ...");
+    info!("get_extended_json: catalogue_url: {catalogue_url}");
 
     let resp = reqwest::Client::new()
         .get(catalogue_url)
@@ -51,6 +52,9 @@ pub async fn get_extended_json(catalogue_url: Url, prism_url: Url) -> Result<Val
 
     let mut json: Value = resp.json().await?;
 
+    // let pretty_json = serde_json::to_string_pretty(&json);
+    // info!("get_extended_json: json: {}", pretty_json);
+    info!("get_extended_json: json: {}", json);
 
     let prism_resp = reqwest::Client::new()
         .post(format!("{}criteria", prism_url))
