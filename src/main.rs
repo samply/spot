@@ -116,12 +116,23 @@ async fn handle_create_beam_task(
         tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
     }
     let LensQuery { id, sites, query } = query;
-    let task = create_beam_task(id, sites, query);
-    BEAM_CLIENT.post_task(&task).await.map_err(|e| {
-        warn!("Unable to query Beam.Proxy: {}", e);
-        (StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy")
-    })?;
-    Ok(StatusCode::CREATED)
+    let mut task = create_beam_task(id, sites, query);
+    match BEAM_CLIENT.post_task(&task).await {
+        Ok(()) => Ok(StatusCode::CREATED),
+        Err(beam_lib::BeamError::InvalidReceivers(invalid)) => {
+            task.to.retain(|t| !invalid.contains(&t.proxy_id()));
+            BEAM_CLIENT.post_task(&task).await
+                .map_err(|e| {
+                    warn!("Unable to query Beam.Proxy: {}", e);
+                    (StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy")
+                })
+                .map(|()| StatusCode::CREATED)
+        },
+        Err(e) => {
+            warn!("Unable to query Beam.Proxy: {}", e);
+            Err((StatusCode::BAD_GATEWAY, "Unable to query Beam.Proxy"))
+        }
+    }
 }
 
 #[derive(Deserialize)]
