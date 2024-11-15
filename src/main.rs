@@ -66,7 +66,8 @@ async fn main() {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_origin(CONFIG.cors_origin.clone())
-        .allow_headers([header::CONTENT_TYPE]);
+        .allow_headers([header::CONTENT_TYPE])
+        .allow_credentials(true);
     
     let mut app = Router::new()
         .route("/health", get(handler_health))
