@@ -2,7 +2,7 @@ use std::{convert::Infallible, net::SocketAddr, path::PathBuf};
 
 use beam_lib::AppId;
 use clap::Parser;
-use reqwest::{Url, header::InvalidHeaderValue};
+use reqwest::{header::InvalidHeaderValue, Url};
 use tower_http::cors::AllowOrigin;
 
 #[derive(Parser, Clone, Debug)]
@@ -37,12 +37,16 @@ pub struct Config {
     pub catalogue_url: Option<Url>,
 
     /// URL to prism
-    #[clap(long, env, default_value= "http://localhost:8066")]
+    #[clap(long, env, default_value = "http://localhost:8066")]
     pub prism_url: Url,
 
     /// Path to a file which will contain the query logs
     #[clap(long, env, value_hint = clap::ValueHint::FilePath)]
     pub log_file: Option<PathBuf>,
+
+    /// Target_application_name
+    #[clap(long, env, value_parser, default_value = "focus")]
+    pub target_app: String,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
