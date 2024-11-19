@@ -33,7 +33,7 @@ Optional environment variables:
 --bind-addr <BIND_ADDR>
     The socket address this server will bind to [env: BIND_ADDR=] [default: 0.0.0.0:8055]
 --target-app <TARGET_APP>
-    Target_application_name [env: TARGET=] [default: focus]
+    Target_application_name [env: TARGET_APP=] [default: focus]
 ```
 
 ## API
