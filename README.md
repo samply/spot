@@ -7,7 +7,7 @@ Spot can be run locally with the provided [docker-compose](./docker-compose.yml)
 
 Spot can also be run from command line stating command line parameters, like so:
 ```bash
-cargo run -- --beam-proxy-url http://localhost:8081 --beam-app-id app1.proxy1.broker --beam-secret App1Secret --cors-origin any --bind-addr 127.0.0.1:8055 --catalogue-url https://raw.githubusercontent.com/samply/lens/main/packages/demo/public/catalogues/catalogue-dktk.json
+cargo run -- --beam-proxy-url http://localhost:8081 --beam-app-id app1.proxy1.broker --beam-secret App1Secret --cors-origin any --bind-addr 127.0.0.1:8055 --catalogue-url https://raw.githubusercontent.com/samply/lens/main/packages/demo/public/catalogues/catalogue-dktk.json --target app1
 ```
 
 The following environment variables are mandatory for the usage of Spot.
@@ -32,6 +32,8 @@ Optional environment variables:
     URL to prism, if catalogue-url is not stated, this is never used [env: PRISM_URL=] [default: http://localhost:8066]
 --bind-addr <BIND_ADDR>
     The socket address this server will bind to [env: BIND_ADDR=] [default: 0.0.0.0:8055]
+--target <TARGET>
+    Target_application_name [env: TARGET=] [default: focus]
 ```
 
 ## API
