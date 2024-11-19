@@ -7,7 +7,7 @@ Spot can be run locally with the provided [docker-compose](./docker-compose.yml)
 
 Spot can also be run from command line stating command line parameters, like so:
 ```bash
-cargo run -- --beam-proxy-url http://localhost:8081 --beam-app-id app1.proxy1.broker --beam-secret App1Secret --cors-origin any --bind-addr 127.0.0.1:8055 --catalogue-url https://raw.githubusercontent.com/samply/lens/main/packages/demo/public/catalogues/catalogue-dktk.json --target app1
+cargo run -- --beam-proxy-url http://localhost:8081 --beam-app-id app1.proxy1.broker --beam-secret App1Secret --cors-origin any --bind-addr 127.0.0.1:8055 --catalogue-url https://raw.githubusercontent.com/samply/lens/main/packages/demo/public/catalogues/catalogue-dktk.json --target-app app1
 ```
 
 The following environment variables are mandatory for the usage of Spot.
