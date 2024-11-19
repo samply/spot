@@ -32,7 +32,7 @@ Optional environment variables:
     URL to prism, if catalogue-url is not stated, this is never used [env: PRISM_URL=] [default: http://localhost:8066]
 --bind-addr <BIND_ADDR>
     The socket address this server will bind to [env: BIND_ADDR=] [default: 0.0.0.0:8055]
---target <TARGET>
+--target-app <TARGET_APP>
     Target_application_name [env: TARGET=] [default: focus]
 ```
 
