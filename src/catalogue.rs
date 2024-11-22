@@ -190,7 +190,7 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                                 let catalogue_criterion = CatalogueCriterion {
                                     key: key.clone(),
                                     name: key.clone(),
-                                    description: "".into(),
+                                    description: key.clone(),
                                     count: count.clone(),
                                 };
                                 criteria.push(json!(catalogue_criterion));
