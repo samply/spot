@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use serde::Deserialize;
 use serde::Serialize;
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use reqwest::Url;
 use serde_json::{json, Value};
@@ -15,10 +15,10 @@ pub type CriteriaGroups = BTreeMap<String, CriteriaGroup>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CatalogueCriterion {
-    key: String, 
+    key: String,
     name: String,
     description: String,
-    count: u64
+    count: u64,
 }
 
 fn get_element<'a>(
@@ -36,11 +36,9 @@ fn get_element<'a>(
 fn get_stratifier<'a>(
     counts: &'a CriteriaGroups,
     key1: &'a str,
-    key2: &'a str
+    key2: &'a str,
 ) -> Option<&'a Criteria> {
-    counts
-        .get(key1)
-        .and_then(|group| group.get(key2))
+    counts.get(key1).and_then(|group| group.get(key2))
 }
 
 pub fn spawn_thing(catalogue_url: Url, prism_url: Url) -> Arc<Mutex<Value>> {
@@ -116,12 +114,12 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                 let group_key = obj.get("key").expect("Got JSON element with childCategories but without (group) key. Please check json.").as_str()
                 .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
 
-                //TODO consolidate catalogue and MeasureReport group names
-                let group_key = if group_key == "patient" {
+                //TODO consolidate catalogue and MeasureReport group names, also between projects
+                let group_key = if group_key == "patient" || group_key == "donor" {
                     "patients"
                 } else if group_key == "tumor_classification" {
                     "diagnosis"
-                } else if group_key == "biosamples" {
+                } else if group_key == "biosamples" || group_key == "sample" {
                     "specimen"
                 } else {
                     &group_key
@@ -138,6 +136,13 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                 for child_cat in children_cats {
                     let stratifier_key = child_cat.get("key").expect("Got JSON element with childCategory that does not contain a (stratifier) key. Please check json.").as_str()
                     .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
+
+                    //TODO consolidate catalogue and MeasureReport group names, also between projects
+                    let stratifier_key = if stratifier_key == "gender" {
+                        "Gender"
+                    } else {
+                        &stratifier_key
+                    };
 
                     let criteria = child_cat
                         .get_mut("criteria")
@@ -171,18 +176,24 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                             }
                         }
                     } else {
-                        let criteria_counts_maybe = get_stratifier(counts, &group_key, &stratifier_key);
-                        if let Some(criteria_counts) = criteria_counts_maybe{
+                        //TODO consolidate catalogue and MeasureReport group names, also between projects
+                        let group_key = if stratifier_key == "diagnosis" {
+                            "diagnosis"
+                        } else {
+                            &group_key
+                        };
+                        let criteria_counts_maybe =
+                            get_stratifier(counts, &group_key, &stratifier_key);
+                        if let Some(criteria_counts) = criteria_counts_maybe {
                             for criterion_count in criteria_counts {
                                 let (key, count) = (criterion_count.0, criterion_count.1);
                                 let catalogue_criterion = CatalogueCriterion {
-                                        key: key.clone(),
-                                        name: key.clone(),
-                                        description: "".into(),
-                                        count: count.clone()
+                                    key: key.clone(),
+                                    name: key.clone(),
+                                    description: "".into(),
+                                    count: count.clone(),
                                 };
                                 criteria.push(json!(catalogue_criterion));
-    
                             }
                         }
                     }
@@ -190,5 +201,31 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    const CATALOGUE_BBMRI_NO_DIAGNOSES: &str =
+        include_str!("resources/test/catalogue_bbmri_no_diagnoses.json");
+    const CATALOGUE_BBMRI: &str = include_str!("resources/test/catalogue_bbmri.json");
+    const CRITERIA_GROUPS_BBMRI: &str = include_str!("resources/test/criteria_groups_bbmri.json");
+
+    #[test]
+    fn test_recurse_bbmri() {
+        let mut criteria_groups: CriteriaGroups =
+            serde_json::from_str(&CRITERIA_GROUPS_BBMRI).expect("Not valid criteria groups");
+
+        let mut catalogue =
+            serde_json::from_str(&CATALOGUE_BBMRI_NO_DIAGNOSES).expect("Not valid json");
+
+        recurse(&mut catalogue, &mut criteria_groups);
+
+        pretty_assertions::assert_eq!(
+            CATALOGUE_BBMRI,
+            serde_json::to_string(&catalogue).expect("Failed to serialize JSON")
+        );
     }
 }
