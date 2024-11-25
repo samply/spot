@@ -28,9 +28,9 @@ fn get_element<'a>(
     key3: &'a str,
 ) -> Option<&'a u64> {
     counts
-        .get(key1)
-        .and_then(|group| group.get(key2))
-        .and_then(|criteria| criteria.get(key3))
+        .get(key1)?
+        .get(key2)?
+        .get(key3)
 }
 
 fn get_stratifier<'a>(
@@ -38,7 +38,10 @@ fn get_stratifier<'a>(
     key1: &'a str,
     key2: &'a str,
 ) -> Option<&'a Criteria> {
-    counts.get(key1).and_then(|group| group.get(key2))
+    counts
+    .get(key1)?
+    .get(key2)
+
 }
 
 pub fn spawn_thing(catalogue_url: Url, prism_url: Url) -> Arc<Mutex<Value>> {
@@ -115,14 +118,11 @@ fn recurse(json: &mut Value, counts: &mut CriteriaGroups) {
                 .expect("Got JSON where a criterion key was not a string. Please check json.").to_owned();
 
                 //TODO consolidate catalogue and MeasureReport group names, also between projects
-                let group_key = if group_key == "patient" || group_key == "donor" {
-                    "patients"
-                } else if group_key == "tumor_classification" {
-                    "diagnosis"
-                } else if group_key == "biosamples" || group_key == "sample" {
-                    "specimen"
-                } else {
-                    &group_key
+                let group_key = match group_key.as_str() {
+                    "patient" | "donor" => "patients",
+                    "tumor_classification" => "diagnosis",
+                    "biosamples" | "sample" => "specimen",
+                    _ => &group_key
                 };
 
                 let children_cats = obj
