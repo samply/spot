@@ -72,7 +72,7 @@ async fn main() {
     let mut app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
-        .route("/beam/:task_id", get(handle_listen_to_beam_tasks));
+        .route("/beam/{task_id}", get(handle_listen_to_beam_tasks));
 
     let state = if let Some(url) = CONFIG.catalogue_url.clone() {
         let extended_json = catalogue::spawn_thing(url, CONFIG.prism_url.clone());
