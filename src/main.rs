@@ -228,6 +228,7 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
     out.push(b'\n');
     let res = tokio::fs::OpenOptions::new()
         .append(true)
+        .create(true)
         .open(log_file)
         .and_then(|mut f| async move { f.write(&out).await })
         .await;
