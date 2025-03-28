@@ -230,7 +230,10 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         .append(true)
         .create(true)
         .open(log_file)
-        .and_then(|mut f| async move { f.write(&out).await })
+        .and_then(|mut f| async move {
+            f.write(&out).await?;
+            f.flush().await
+        })
         .await;
     if let Err(e) = res {
         warn!("Failed to write to log file: {e}");
