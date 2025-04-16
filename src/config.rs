@@ -47,6 +47,10 @@ pub struct Config {
     /// Target_application_name
     #[clap(long, env, value_parser, default_value = "focus")]
     pub target_app: String,
+
+    /// Comma separated list of base64 encoded queries
+    #[clap(long, env, value_parser)]
+    pub query_filter: Option<String>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
