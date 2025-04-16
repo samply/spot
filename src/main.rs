@@ -117,6 +117,14 @@ async fn handle_create_beam_task(
         tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
     }
     let LensQuery { id, sites, query } = query;
+
+    // Check if the query is allowed
+    if let Some(filter) = &CONFIG.query_filter {
+        if !filter.split(',').any(|f| query == f) {
+            return Err((StatusCode::FORBIDDEN, "Query not allowed"));
+        }
+    }
+
     let mut task = create_beam_task(id, sites, query);
     match BEAM_CLIENT.post_task(&task).await {
         Ok(()) => Ok(StatusCode::CREATED),
