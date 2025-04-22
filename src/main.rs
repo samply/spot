@@ -90,8 +90,24 @@ async fn main() {
     banner::print_banner();
 
     axum::serve(TcpListener::bind(CONFIG.bind_addr).await.unwrap(), app.into_make_service())
+        .with_graceful_shutdown(wait_for_shutdown())
         .await
         .unwrap();
+}
+
+async fn wait_for_shutdown() {
+    #[cfg(unix)]
+    {
+        // Required for proper shutdown in Docker
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate()).expect("Failed to install SIGTERM handler");
+        sigterm.recv().await.expect("Failed to receive SIGTERM");
+        info!("Received SIGTERM, shutting down...");
+        return
+    }
+    // On other platforms we let the OS handle the shutdown
+    #[cfg(not(unix))]
+    std::future::pending::<()>().await;
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -117,6 +133,14 @@ async fn handle_create_beam_task(
         tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
     }
     let LensQuery { id, sites, query } = query;
+
+    // Check if the query is allowed
+    if let Some(filter) = &CONFIG.query_filter {
+        if !filter.split(',').any(|f| query == f) {
+            return Err((StatusCode::FORBIDDEN, "Query not allowed"));
+        }
+    }
+
     let mut task = create_beam_task(id, sites, query);
     match BEAM_CLIENT.post_task(&task).await {
         Ok(()) => Ok(StatusCode::CREATED),
@@ -228,8 +252,12 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
     out.push(b'\n');
     let res = tokio::fs::OpenOptions::new()
         .append(true)
+        .create(true)
         .open(log_file)
-        .and_then(|mut f| async move { f.write(&out).await })
+        .and_then(|mut f| async move {
+            f.write(&out).await?;
+            f.flush().await
+        })
         .await;
     if let Err(e) = res {
         warn!("Failed to write to log file: {e}");
