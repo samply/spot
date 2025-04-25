@@ -136,7 +136,7 @@ async fn handle_create_beam_task(
 
     // Check if the query is allowed
     if let Some(filter) = &CONFIG.query_filter {
-        if !filter.split(',').any(|f| query == f) {
+        if !filter.contains(&query) {
             return Err((StatusCode::FORBIDDEN, "Query not allowed"));
         }
     }
