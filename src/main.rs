@@ -72,7 +72,8 @@ async fn main() {
     let mut app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
-        .route("/beam/:task_id", get(handle_listen_to_beam_tasks));
+        .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
+        .route("/prism/criteria", post(handle_prism_criteria));
 
     let state = if let Some(url) = CONFIG.catalogue_url.clone() {
         let extended_json = catalogue::spawn_thing(url, CONFIG.prism_url.clone());
@@ -130,7 +131,20 @@ async fn handle_create_beam_task(
     Json(query): Json<LensQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
     if let Some(log_file) = &CONFIG.log_file {
-        tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
+        let q = query.clone();
+        let h = headers.clone();
+        let log_file = log_file.clone();
+        let result_log_sender_map = result_log_sender_map.clone();
+        tokio::spawn(async move {
+            // Old log_query logic, but now with type="query"
+            let (tx, mut rx) = mpsc::channel(q.sites.len());
+            result_log_sender_map.lock().await.insert(q.id, tx);
+            let mut results = Vec::with_capacity(q.sites.len());
+            while let Some(result) = rx.recv().await {
+                results.push(result);
+            }
+            log_endpoint(&log_file, q, &h, "query", Some(results)).await;
+        });
     }
     let LensQuery { id, sites, query } = query;
 
@@ -222,34 +236,35 @@ async fn handle_listen_to_beam_tasks(
     Ok(Sse::new(stream))
 }
 
-async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, result_logger_map: ResultLogSenderMap) {
-    #[derive(Serialize)]
-    struct Log {
-        user_email: String,
-        #[serde(flatten)]
-        query: LensQuery,
-        ts: u128,
-        results: Vec<String>
-    }
-    let (tx, mut rx) = mpsc::channel(query.sites.len());
-    result_logger_map.lock().await.insert(query.id, tx);
-    let mut results = Vec::with_capacity(query.sites.len());
-    while let Some(result) = rx.recv().await {
-        results.push(result);
-    }
+#[derive(Serialize)]
+struct EndpointLog<T> {
+    user_email: String,
+    #[serde(flatten)]
+    data: T,
+    ts: u128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    results: Option<Vec<String>>,
+    #[serde(rename = "type")]
+    log_type: String,
+}
+
+async fn log_endpoint<T: Serialize>(log_file: &PathBuf, data: T, headers: &HeaderMap, log_type: &str, results: Option<Vec<String>>) {
     let user_email = headers
         .get("x-auth-request-email")
         .unwrap_or(&HeaderValue::from_static("Unknown user"))
         .to_str()
-        .expect("Should be a valid string")
+        .unwrap_or("Unknown user")
         .to_owned();
-    let mut out = serde_json::to_vec(&Log {
+    let log = EndpointLog {
         user_email,
-        query,
+        data,
+        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
         results,
-        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
-    }).expect("Failed to serialize log");
+        log_type: log_type.to_string(),
+    };
+    let mut out = serde_json::to_vec(&log).expect("Failed to serialize log");
     out.push(b'\n');
+    tracing::debug!(target: "spot.log", "Writing to log file: {}", String::from_utf8_lossy(&out));
     let res = tokio::fs::OpenOptions::new()
         .append(true)
         .create(true)
@@ -261,7 +276,42 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         .await;
     if let Err(e) = res {
         warn!("Failed to write to log file: {e}");
-    };
+    }
+}
+
+async fn handle_prism_criteria(
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let client = reqwest::Client::new();
+    let base = CONFIG.prism_url.to_string();
+    let url = format!("{}/criteria", base.trim_end_matches('/'));
+    let resp = client
+        .post(&url)
+        .headers(headers.clone())
+        .body(body.clone())
+        .send()
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to reach prism: {e}")))?;
+    let status = resp.status();
+    let resp_headers = resp.headers().clone();
+    let bytes = resp.bytes().await.map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to read prism response: {e}")))?;
+
+    // Logging
+    if let Some(log_file) = &CONFIG.log_file {
+        let log_data = serde_json::json!({ "body": String::from_utf8_lossy(&body) });
+        let log_file = log_file.clone();
+        let headers = headers.clone();
+        log_endpoint(&log_file, log_data, &headers, "prism", None).await;
+    }
+
+    let mut response = axum::response::Response::builder().status(status);
+    for (k, v) in resp_headers.iter() {
+        if let Ok(val) = v.to_str() {
+            response = response.header(k, val);
+        }
+    }
+    Ok(response.body(axum::body::Body::from(bytes)).unwrap())
 }
 
 async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
