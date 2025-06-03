@@ -136,7 +136,6 @@ async fn handle_create_beam_task(
         let log_file = log_file.clone();
         let result_log_sender_map = result_log_sender_map.clone();
         tokio::spawn(async move {
-            // Old log_query logic, but now with type="query"
             let (tx, mut rx) = mpsc::channel(q.sites.len());
             result_log_sender_map.lock().await.insert(q.id, tx);
             let mut results = Vec::with_capacity(q.sites.len());
