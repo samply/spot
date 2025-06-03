@@ -292,10 +292,6 @@ async fn handle_prism_criteria(
         .send()
         .await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to reach prism: {e}")))?;
-    let status = resp.status();
-    let resp_headers = resp.headers().clone();
-    let bytes = resp.bytes().await.map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to read prism response: {e}")))?;
-
     // Logging
     if let Some(log_file) = &CONFIG.log_file {
         let log_data = serde_json::json!({ "body": String::from_utf8_lossy(&body) });
@@ -303,14 +299,7 @@ async fn handle_prism_criteria(
         let headers = headers.clone();
         log_endpoint(&log_file, log_data, &headers, "prism", None).await;
     }
-
-    let mut response = axum::response::Response::builder().status(status);
-    for (k, v) in resp_headers.iter() {
-        if let Ok(val) = v.to_str() {
-            response = response.header(k, val);
-        }
-    }
-    Ok(response.body(axum::body::Body::from(bytes)).unwrap())
+    Ok(axum::response::Response::from(resp))
 }
 
 async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
