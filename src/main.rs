@@ -282,10 +282,10 @@ async fn handle_prism_criteria(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let client = reqwest::Client::new();
+    static CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(reqwest::Client::new);
     let base = CONFIG.prism_url.to_string();
     let url = format!("{}/criteria", base.trim_end_matches('/'));
-    let resp = client
+    let resp = CLIENT
         .post(&url)
         .headers(headers.clone())
         .body(body.clone())
