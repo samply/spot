@@ -142,7 +142,7 @@ async fn handle_create_beam_task(
             while let Some(result) = rx.recv().await {
                 results.push(result);
             }
-            log_endpoint(&log_file, q, &h, "query", Some(results)).await;
+            log_endpoint(&log_file, &h, LogEvent::Query { query: q, results }).await;
         });
     }
     let LensQuery { id, sites, query } = query;
@@ -236,18 +236,26 @@ async fn handle_listen_to_beam_tasks(
 }
 
 #[derive(Serialize)]
-struct EndpointLog<T> {
+struct EndpointLog {
     user_email: String,
-    #[serde(flatten)]
-    data: T,
     ts: u128,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    results: Option<Vec<String>>,
-    #[serde(rename = "type")]
-    log_type: String,
+    #[serde(flatten)]
+    log_type: LogEvent,
 }
 
-async fn log_endpoint<T: Serialize>(log_file: &PathBuf, data: T, headers: &HeaderMap, log_type: &str, results: Option<Vec<String>>) {
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum LogEvent {
+    Query {
+        query: LensQuery,
+        results: Vec<String>,
+    },
+    Prism {
+        body: String,
+    },
+}
+
+async fn log_endpoint(log_file: &PathBuf, headers: &HeaderMap, log_type: LogEvent) {
     let user_email = headers
         .get("x-auth-request-email")
         .unwrap_or(&HeaderValue::from_static("Unknown user"))
@@ -256,10 +264,8 @@ async fn log_endpoint<T: Serialize>(log_file: &PathBuf, data: T, headers: &Heade
         .to_owned();
     let log = EndpointLog {
         user_email,
-        data,
         ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
-        results,
-        log_type: log_type.to_string(),
+        log_type,
     };
     let mut out = serde_json::to_vec(&log).expect("Failed to serialize log");
     out.push(b'\n');
@@ -294,10 +300,7 @@ async fn handle_prism_criteria(
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to reach prism: {e}")))?;
     // Logging
     if let Some(log_file) = &CONFIG.log_file {
-        let log_data = serde_json::json!({ "body": String::from_utf8_lossy(&body) });
-        let log_file = log_file.clone();
-        let headers = headers.clone();
-        log_endpoint(&log_file, log_data, &headers, "prism", None).await;
+        log_endpoint(&log_file, &headers, LogEvent::Prism { body: String::from_utf8_lossy(&body).to_string() }).await;
     }
     Ok(axum::response::Response::from(resp))
 }
