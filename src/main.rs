@@ -72,7 +72,8 @@ async fn main() {
     let mut app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
-        .route("/beam/:task_id", get(handle_listen_to_beam_tasks));
+        .route("/beam/:task_id", get(handle_listen_to_beam_tasks))
+        .route("/prism/criteria", post(handle_prism_criteria));
 
     let state = if let Some(url) = CONFIG.catalogue_url.clone() {
         let extended_json = catalogue::spawn_thing(url, CONFIG.prism_url.clone());
@@ -130,7 +131,19 @@ async fn handle_create_beam_task(
     Json(query): Json<LensQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
     if let Some(log_file) = &CONFIG.log_file {
-        tokio::spawn(log_query(log_file, query.clone(), headers, result_log_sender_map));
+        let q = query.clone();
+        let h = headers.clone();
+        let log_file = log_file.clone();
+        let result_log_sender_map = result_log_sender_map.clone();
+        tokio::spawn(async move {
+            let (tx, mut rx) = mpsc::channel(q.sites.len());
+            result_log_sender_map.lock().await.insert(q.id, tx);
+            let mut results = Vec::with_capacity(q.sites.len());
+            while let Some(result) = rx.recv().await {
+                results.push(result);
+            }
+            log_endpoint(&log_file, &h, LogEvent::Query { query: q, results }).await;
+        });
     }
     let LensQuery { id, sites, query } = query;
 
@@ -222,34 +235,41 @@ async fn handle_listen_to_beam_tasks(
     Ok(Sse::new(stream))
 }
 
-async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, result_logger_map: ResultLogSenderMap) {
-    #[derive(Serialize)]
-    struct Log {
-        user_email: String,
-        #[serde(flatten)]
+#[derive(Serialize)]
+struct EndpointLog {
+    user_email: String,
+    ts: u128,
+    #[serde(flatten)]
+    log_type: LogEvent,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum LogEvent {
+    Query {
         query: LensQuery,
-        ts: u128,
-        results: Vec<String>
-    }
-    let (tx, mut rx) = mpsc::channel(query.sites.len());
-    result_logger_map.lock().await.insert(query.id, tx);
-    let mut results = Vec::with_capacity(query.sites.len());
-    while let Some(result) = rx.recv().await {
-        results.push(result);
-    }
+        results: Vec<String>,
+    },
+    Prism {
+        body: String,
+    },
+}
+
+async fn log_endpoint(log_file: &PathBuf, headers: &HeaderMap, log_type: LogEvent) {
     let user_email = headers
         .get("x-auth-request-email")
         .unwrap_or(&HeaderValue::from_static("Unknown user"))
         .to_str()
-        .expect("Should be a valid string")
+        .unwrap_or("Unknown user")
         .to_owned();
-    let mut out = serde_json::to_vec(&Log {
+    let log = EndpointLog {
         user_email,
-        query,
-        results,
-        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
-    }).expect("Failed to serialize log");
+        ts: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
+        log_type,
+    };
+    let mut out = serde_json::to_vec(&log).expect("Failed to serialize log");
     out.push(b'\n');
+    tracing::debug!(target: "spot.log", "Writing to log file: {}", String::from_utf8_lossy(&out));
     let res = tokio::fs::OpenOptions::new()
         .append(true)
         .create(true)
@@ -261,7 +281,28 @@ async fn log_query(log_file: &PathBuf, query: LensQuery, headers: HeaderMap, res
         .await;
     if let Err(e) = res {
         warn!("Failed to write to log file: {e}");
-    };
+    }
+}
+
+async fn handle_prism_criteria(
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    static CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(reqwest::Client::new);
+    let base = CONFIG.prism_url.to_string();
+    let url = format!("{}/criteria", base.trim_end_matches('/'));
+    let resp = CLIENT
+        .post(&url)
+        .headers(headers.clone())
+        .body(body.clone())
+        .send()
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to reach prism: {e}")))?;
+    // Logging
+    if let Some(log_file) = &CONFIG.log_file {
+        log_endpoint(&log_file, &headers, LogEvent::Prism { body: String::from_utf8_lossy(&body).to_string() }).await;
+    }
+    Ok(axum::response::Response::from(resp))
 }
 
 async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
