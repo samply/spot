@@ -34,6 +34,10 @@ Optional environment variables:
     The socket address this server will bind to [env: BIND_ADDR=] [default: 0.0.0.0:8055]
 --target-app <TARGET_APP>
     Target application name [env: TARGET_APP=] [default: focus]
+--query-filter <QUERY_FILTER>
+    Comma separated list of base64 encoded queries [env: QUERY_FILTER=]
+--sites <SITES>
+    Comma separated list of sites to query in case of no sites in the query from Lens [env: SITES=]
 ```
 
 ## API
