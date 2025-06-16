@@ -51,6 +51,10 @@ pub struct Config {
     /// Comma separated list of base64 encoded queries
     #[clap(long, env, value_parser, value_delimiter = ',')]
     pub query_filter: Option<Vec<String>>,
+
+    /// Comma separated list of sites to query in case of no sites in the query from Lens
+    #[clap(long, env, value_parser, value_delimiter = ',')]
+    pub sites: Option<Vec<String>>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
@@ -59,4 +63,6 @@ fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
     } else {
         v.parse().map(AllowOrigin::exact)
     }
+
 }
+
