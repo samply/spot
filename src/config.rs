@@ -63,4 +63,6 @@ fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
     } else {
         v.parse().map(AllowOrigin::exact)
     }
+
 }
+
