@@ -49,7 +49,7 @@ pub struct Config {
     pub target_app: String,
 
     /// Comma separated list of base64 encoded queries
-    #[clap(long, env, value_parser = parse_query_filter)]
+    #[clap(long, env, value_parser, value_delimiter = ',')]
     pub query_filter: Option<Vec<String>>,
 }
 
@@ -59,8 +59,4 @@ fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
     } else {
         v.parse().map(AllowOrigin::exact)
     }
-}
-
-fn parse_query_filter(v: &str) -> Result<Vec<String>, Infallible> {
-    Ok(v.split(',').map(String::from).collect())
 }
