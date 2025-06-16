@@ -49,7 +49,7 @@ pub struct Config {
     pub target_app: String,
 
     /// Comma separated list of base64 encoded queries
-    #[clap(long, env, value_parser = explode)]
+    #[clap(long, env, value_parser, value_delimiter = ',')]
     pub query_filter: Option<Vec<String>>,
 
     /// Comma separated list of sites to query in case of no sites in the query from Lens
@@ -64,7 +64,10 @@ fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
         v.parse().map(AllowOrigin::exact)
     }
 }
+<<<<<<< HEAD
 
 fn explode(v: &str) -> Result<Vec<String>, Infallible> {
     Ok(v.split(',').map(String::from).collect())
 }
+=======
+>>>>>>> 1774182 (Fix query filter parsing)
