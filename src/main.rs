@@ -111,9 +111,14 @@ async fn wait_for_shutdown() {
     std::future::pending::<()>().await;
 }
 
+fn default_sites() -> Vec<String> {
+    CONFIG.sites.clone().unwrap_or_default()
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct LensQuery {
     id: MsgId,
+    #[serde(default="default_sites")]
     sites: Vec<String>,
     query: String,
 }
