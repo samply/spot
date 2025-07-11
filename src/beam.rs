@@ -20,7 +20,7 @@ pub fn create_beam_task(
     let transform = if let Some(transform) = &CONFIG.transform {
         transform
     } else {
-        ""
+        "none"
     };
     let metadata = if let Some(project) = &CONFIG.project {
         serde_json::json!({
