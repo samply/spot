@@ -22,14 +22,17 @@ pub fn create_beam_task(
     } else {
         "none"
     };
-    let metadata = if let Some(project) = &CONFIG.project {
-        serde_json::json!({
-            "project": project,
-            "transform": transform
-        })
+
+    let project = if let Some(project) = &CONFIG.project {
+        project
     } else {
-        serde_json::Value::Null
+        "default_obfuscation"
     };
+
+    let metadata = serde_json::json!({
+            "project": project,
+            "transform": transform});
+
     TaskRequest {
         id,
         from: CONFIG.beam_app_id.clone(),
