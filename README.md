@@ -25,7 +25,9 @@ The following environment variables are mandatory for the usage of Spot.
 Optional environment variables:
 ```
 --project <PROJECT>
-    Optional project name used by focus [env: PROJECT=]
+    Optional project name used by Focus [env: PROJECT=]
+--transform <TRANSFORM>
+    Optional transformation format for the results, used by Focus [env: TRANSFORM=]
 --catalogue-url <CATALOGUE_URL>
     URL to catalogue.json file, if not stated, /catalogue endpoint is disabled [env: CATALOGUE_URL=]
 --prism-url <PRISM_URL>

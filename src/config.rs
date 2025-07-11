@@ -24,9 +24,13 @@ pub struct Config {
     #[clap(long, env, value_parser = parse_cors)]
     pub cors_origin: AllowOrigin,
 
-    /// Optional project name used by focus
+    /// Optional project name used by Focus
     #[clap(long, env)]
     pub project: Option<String>,
+
+    /// Optional transformation format for the results, used by Focus
+    #[clap(long, env)]
+    pub transform: Option<String>,
 
     /// The socket address this server will bind to
     #[clap(long, env, default_value = "0.0.0.0:8055")]
