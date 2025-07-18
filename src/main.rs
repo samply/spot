@@ -135,6 +135,10 @@ async fn handle_create_beam_task(
     headers: HeaderMap,
     Json(query): Json<LensQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
+    if query.sites.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No sites specified"));
+    }
+
     if let Some(log_file) = &CONFIG.log_file {
         let q = query.clone();
         let h = headers.clone();
