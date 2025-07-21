@@ -116,7 +116,7 @@ fn default_sites() -> Vec<String> {
 }
 
 fn default_wait_count() -> u16 {
-    CONFIG.sites.as_ref().map_or(0, |sites| sites.len() as u16)
+    default_sites().len() as u16
 }
 
 #[derive(Serialize, Deserialize, Clone)]
