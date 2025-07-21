@@ -36,10 +36,6 @@ pub struct Config {
     #[clap(long, env, default_value = "0.0.0.0:8055")]
     pub bind_addr: SocketAddr,
 
-    /// URL to catalogue.json file
-    #[clap(long, env)]
-    pub catalogue_url: Option<Url>,
-
     /// URL to prism
     #[clap(long, env, default_value = "http://localhost:8066")]
     pub prism_url: Url,

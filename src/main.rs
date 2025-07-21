@@ -14,7 +14,6 @@ use config::Config;
 use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn, Level};
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
@@ -24,7 +23,6 @@ use health::{BeamStatus, HealthOutput, Verdict};
 
 mod banner;
 mod beam;
-mod catalogue;
 mod config;
 mod health;
 
@@ -42,7 +40,6 @@ type ResultLogSenderMap = Arc<Mutex<HashMap<MsgId, mpsc::Sender<String>>>>;
 
 #[derive(Clone, Default)]
 struct SharedState {
-    extended_json: Arc<Mutex<Value>>,
     result_log_sender_map: ResultLogSenderMap,
 }
 
@@ -54,13 +51,6 @@ async fn main() {
         .finish()
         .init();
 
-    // TODO: Remove this workaround once clap manages to not choke on URL "".
-    if let Ok(var) = std::env::var("CATALOGUE_URL") {
-        if var.is_empty() {
-            std::env::remove_var("CATALOGUE_URL");
-        }
-    }
-
     info!("{:#?}", Lazy::force(&CONFIG));
 
     let cors = CorsLayer::new()
@@ -69,19 +59,13 @@ async fn main() {
         .allow_headers([header::CONTENT_TYPE])
         .allow_credentials(true);
     
-    let mut app = Router::new()
+    let app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
         .route("/beam/{task_id}", get(handle_listen_to_beam_tasks))
         .route("/prism/criteria", post(handle_prism_criteria));
 
-    let state = if let Some(url) = CONFIG.catalogue_url.clone() {
-        let extended_json = catalogue::spawn_thing(url, CONFIG.prism_url.clone());
-        app = app.route("/catalogue", get(handle_get_catalogue));
-        SharedState { extended_json, result_log_sender_map: Default::default() }
-    } else {
-        SharedState::default()
-    };
+    let state = SharedState::default();
     let app = app.with_state(state)
         .layer(axum::middleware::map_response(banner::set_server_header))
         .layer(cors);
@@ -312,9 +296,4 @@ async fn handle_prism_criteria(
         log_endpoint(&log_file, &headers, LogEvent::Prism { body: String::from_utf8_lossy(&body).to_string() }).await;
     }
     Ok(axum::response::Response::from(resp))
-}
-
-async fn handle_get_catalogue(State(state): State<SharedState>) -> Json<Value> {
-    // TODO: We can totally avoid this clone by using axum_extra ErasedJson
-    Json(state.extended_json.lock().await.clone())
 }
