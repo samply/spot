@@ -99,6 +99,10 @@ fn default_sites() -> Vec<String> {
     CONFIG.sites.clone().unwrap_or_default()
 }
 
+fn default_wait_count() -> u16 {
+    default_sites().len() as u16
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct LensQuery {
     id: MsgId,
@@ -168,6 +172,7 @@ async fn handle_create_beam_task(
 
 #[derive(Deserialize)]
 struct ListenQueryParameters {
+    #[serde(default="default_wait_count")]
     wait_count: u16,
 }
 
