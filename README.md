@@ -29,7 +29,7 @@ Optional environment variables:
 --transform <TRANSFORM>
     Optional transformation format for the results, used by Focus [env: TRANSFORM=]
 --prism-url <PRISM_URL>
-    URL to prism [env: PRISM_URL=] [default: http://localhost:8066]
+    URL to prism [env: PRISM_URL=]
 --bind-addr <BIND_ADDR>
     The socket address this server will bind to [env: BIND_ADDR=] [default: 0.0.0.0:8055]
 --target-app <TARGET_APP>

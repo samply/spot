@@ -37,8 +37,8 @@ pub struct Config {
     pub bind_addr: SocketAddr,
 
     /// URL to prism
-    #[clap(long, env, default_value = "http://localhost:8066")]
-    pub prism_url: Url,
+    #[clap(long, env)]
+    pub prism_url: Option<Url>,
 
     /// Path to a file which will contain the query logs
     #[clap(long, env, value_hint = clap::ValueHint::FilePath)]

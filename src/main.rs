@@ -281,9 +281,11 @@ async fn handle_prism_criteria(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let Some(base) = CONFIG.prism_url.clone() else {
+        return Err((StatusCode::BAD_REQUEST, "Prism URL is not configured".to_string()));
+    };
     static CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(reqwest::Client::new);
-    let base = CONFIG.prism_url.to_string();
-    let url = format!("{}/criteria", base.trim_end_matches('/'));
+    let url = format!("{}/criteria", base.to_string().trim_end_matches('/'));
     let resp = CLIENT
         .post(&url)
         .headers(headers.clone())
