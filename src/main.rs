@@ -299,7 +299,6 @@ async fn handle_prism_criteria(
     let url = format!("{}/criteria", base.to_string().trim_end_matches('/'));
     let resp = CLIENT
         .post(&url)
-        .headers(headers.clone())
         .json(&body)
         .send()
         .await
