@@ -111,6 +111,12 @@ struct LensQuery {
     query: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct PrismRequest {
+    #[serde(default="default_sites")]
+    sites: Vec<String>,
+}
+
 async fn handler_health() -> Json<HealthOutput> {
     Json(HealthOutput {
         summary: Verdict::Healthy,
@@ -249,7 +255,7 @@ enum LogEvent {
         results: Vec<String>,
     },
     Prism {
-        body: String,
+        body: PrismRequest,
     },
 }
 
@@ -284,7 +290,7 @@ async fn log_endpoint(log_file: &PathBuf, headers: &HeaderMap, log_type: LogEven
 
 async fn handle_prism_criteria(
     headers: HeaderMap,
-    body: axum::body::Bytes,
+    Json(body): Json<PrismRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let Some(base) = CONFIG.prism_url.clone() else {
         return Err((StatusCode::BAD_REQUEST, "Prism URL is not configured".to_string()));
@@ -294,13 +300,13 @@ async fn handle_prism_criteria(
     let resp = CLIENT
         .post(&url)
         .headers(headers.clone())
-        .body(body.clone())
+        .json(&body)
         .send()
         .await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to reach prism: {e}")))?;
     // Logging
     if let Some(log_file) = &CONFIG.log_file {
-        log_endpoint(&log_file, &headers, LogEvent::Prism { body: String::from_utf8_lossy(&body).to_string() }).await;
+        log_endpoint(&log_file, &headers, LogEvent::Prism { body }).await;
     }
     Ok(axum::response::Response::from(resp))
 }
