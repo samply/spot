@@ -24,21 +24,21 @@ pub struct Config {
     #[clap(long, env, value_parser = parse_cors)]
     pub cors_origin: AllowOrigin,
 
-    /// Optional project name used by focus
+    /// Optional project name used by Focus
     #[clap(long, env)]
     pub project: Option<String>,
+
+    /// Optional transformation format for the results, used by Focus
+    #[clap(long, env)]
+    pub transform: Option<String>,
 
     /// The socket address this server will bind to
     #[clap(long, env, default_value = "0.0.0.0:8055")]
     pub bind_addr: SocketAddr,
 
-    /// URL to catalogue.json file
-    #[clap(long, env)]
-    pub catalogue_url: Option<Url>,
-
     /// URL to prism
-    #[clap(long, env, default_value = "http://localhost:8066")]
-    pub prism_url: Url,
+    #[clap(long, env)]
+    pub prism_url: Option<Url>,
 
     /// Path to a file which will contain the query logs
     #[clap(long, env, value_hint = clap::ValueHint::FilePath)]
