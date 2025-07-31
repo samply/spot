@@ -46,8 +46,7 @@ struct SharedState {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or("info,hyper=warn".to_string()))
         .finish()
         .init();
 
