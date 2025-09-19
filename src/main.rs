@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router
 };
+use base64::{prelude::BASE64_STANDARD, Engine};
 use std::{collections::HashMap, io, path::PathBuf, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 
 use beam::create_beam_task;
@@ -46,8 +47,7 @@ struct SharedState {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or("info,hyper=warn".to_string()))
         .finish()
         .init();
 
@@ -124,6 +124,17 @@ async fn handler_health() -> Json<HealthOutput> {
     })
 }
 
+fn check_lang(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
+    if let Some(allowed_lang) = &CONFIG.allowed_lang {
+        let decoded = BASE64_STANDARD.decode(&query.query).map_err(|_| (StatusCode::BAD_REQUEST, "Query is not valid base64"))?;
+        let json = serde_json::from_slice::<serde_json::Value>(&decoded).map_err(|_| (StatusCode::BAD_REQUEST, "Query is not valid JSON"))?;
+        if json["lang"].as_str() != Some(allowed_lang) {
+            return Err((StatusCode::BAD_REQUEST, "Query is not allowed"));
+        }
+    }
+    Ok(())
+}
+
 async fn handle_create_beam_task(
     State(SharedState { result_log_sender_map, .. }): State<SharedState>,
     headers: HeaderMap,
@@ -132,6 +143,7 @@ async fn handle_create_beam_task(
     if query.sites.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "No sites specified"));
     }
+    check_lang(&query)?;
 
     if let Some(log_file) = &CONFIG.log_file {
         let q = query.clone();
