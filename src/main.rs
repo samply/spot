@@ -60,7 +60,7 @@ async fn main() {
         .allow_origin(CONFIG.cors_origin.clone())
         .allow_headers([header::CONTENT_TYPE])
         .allow_credentials(true);
-    
+
     let app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
@@ -140,7 +140,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Project is not configured for CQL validation"));
     };
     let query_header = LENS_QUERY_HEADER.get_or_try_init(|| {
-        Ok(std::fs::read_to_string(format!("./lens_queries/{project}.cql"))
+        Ok(std::fs::read_to_string(format!("/lens_queries/{project}.cql"))
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read query header file"))?
             .trim()
             .to_string())
