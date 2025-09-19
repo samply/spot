@@ -12,12 +12,12 @@ use beam::create_beam_task;
 use beam_lib::{BeamClient, MsgId, TaskResult};
 use clap::Parser;
 use config::Config;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
-use tracing::{info, warn, Level};
-use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
+use tracing::{info, warn};
+use tracing_subscriber::{util::SubscriberInitExt};
 use tokio::{io::AsyncWriteExt, net::TcpListener, sync::{mpsc, Mutex}};
 use futures_util::{TryFutureExt, TryStreamExt};
 use health::{BeamStatus, HealthOutput, Verdict};
@@ -28,6 +28,8 @@ mod config;
 mod health;
 
 static CONFIG: Lazy<Config> = Lazy::new(Config::parse);
+
+static LENS_QUERY_HEADER: OnceCell<String> = OnceCell::new();
 
 static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     BeamClient::new(
@@ -124,6 +126,55 @@ async fn handler_health() -> Json<HealthOutput> {
     })
 }
 
+fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
+    let decoded = BASE64_STANDARD.decode(&query.query).map_err(|_| (StatusCode::BAD_REQUEST, "Query is not valid base64"))?;
+    let json = serde_json::from_slice::<serde_json::Value>(&decoded).map_err(|_| (StatusCode::BAD_REQUEST, "Query is not valid JSON"))?;
+    if json["lang"] != "cql" {
+        return Ok(())
+    }
+    let payload_enc = json["payload"].as_str().ok_or((StatusCode::BAD_REQUEST, "Query does not contain a payload field"))?;
+    let payload = BASE64_STANDARD.decode(payload_enc).map_err(|_| (StatusCode::BAD_REQUEST, "Payload is not valid base64"))?;
+    let payload_json = serde_json::from_slice::<serde_json::Value>(&payload).map_err(|_| (StatusCode::BAD_REQUEST, "Payload is not valid JSON"))?;
+    let cql = payload_json["lib"]["content"][0]["data"].as_str().ok_or((StatusCode::BAD_REQUEST, "Payload does not contain a CQL query"))?;
+    let Some(project) = &CONFIG.project else {
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Project is not configured for CQL validation"));
+    };
+    let query_header = LENS_QUERY_HEADER.get_or_try_init(|| {
+        Ok(std::fs::read_to_string(format!("./lens_queries/{project}.cql"))
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read query header file"))?
+            .trim()
+            .to_string())
+    })?;
+    let Some(user_defined_query) = cql.strip_prefix(query_header.as_str()) else {
+        return Err((StatusCode::BAD_REQUEST, "CQL query does not start with the required header"));
+    };
+    if !user_defined_query.starts_with("(") {
+        return Err((StatusCode::BAD_REQUEST, "CQL query start with a expression in brackets"));
+    }
+    // In the user defined query count the number of brackets and ensure they are balanced
+    let mut bracket_count = 0;
+    let mut it = user_defined_query.chars().peekable();
+    while let Some(c) = it.next() {
+        if let ('/', Some('/' | '*')) = (c, it.peek()) {
+            return Err((StatusCode::BAD_REQUEST, "CQL query contains comments"));
+        }
+        match c {
+            '(' => bracket_count += 1,
+            ')' => {
+                if bracket_count == 0 {
+                    return Err((StatusCode::BAD_REQUEST, "CQL query has unbalanced brackets"));
+                }
+                bracket_count -= 1;
+            },
+            _ => {}
+        }
+    }
+    if bracket_count != 0 {
+        return Err((StatusCode::BAD_REQUEST, "CQL query has unbalanced brackets"));
+    }
+    Ok(())
+}
+
 fn check_lang(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
     if let Some(allowed_lang) = &CONFIG.allowed_lang {
         let decoded = BASE64_STANDARD.decode(&query.query).map_err(|_| (StatusCode::BAD_REQUEST, "Query is not valid base64"))?;
@@ -144,6 +195,7 @@ async fn handle_create_beam_task(
         return Err((StatusCode::BAD_REQUEST, "No sites specified"));
     }
     check_lang(&query)?;
+    verify_query(&query)?;
 
     if let Some(log_file) = &CONFIG.log_file {
         let q = query.clone();
