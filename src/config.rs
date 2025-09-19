@@ -55,6 +55,10 @@ pub struct Config {
     /// Comma separated list of sites to query in case of no sites in the query from Lens
     #[clap(long, env, value_parser, value_delimiter = ',')]
     pub sites: Option<Vec<String>>,
+
+    /// Allowed language set for the lens queries. Defaults to all languages if not set.
+    #[clap(long, env, value_parser)]
+    pub allowed_lang: Option<String>,
 }
 
 fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
