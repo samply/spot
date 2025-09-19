@@ -23,6 +23,7 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 reqwest = { version = "0.12", default-features = false, features = ["stream", "default-tls"] }
 tower-http = { version = "0.6", features = ["cors"] }
+base64 = "0.22"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
