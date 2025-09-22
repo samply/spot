@@ -150,19 +150,15 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
     if json["lang"] != "cql" {
         return Ok(());
     }
-    let payload_enc = json["payload"].as_str().ok_or((
+    let cql_enc = json["lib"]["content"][0]["data"].as_str().ok_or((
         StatusCode::BAD_REQUEST,
-        "Query does not contain a payload field",
+        "Query does not contain a CQL payload",
     ))?;
-    let payload = BASE64_STANDARD
-        .decode(payload_enc)
-        .map_err(|_| (StatusCode::BAD_REQUEST, "Payload is not valid base64"))?;
-    let payload_json = serde_json::from_slice::<serde_json::Value>(&payload)
-        .map_err(|_| (StatusCode::BAD_REQUEST, "Payload is not valid JSON"))?;
-    let cql = payload_json["lib"]["content"][0]["data"].as_str().ok_or((
-        StatusCode::BAD_REQUEST,
-        "Payload does not contain a CQL query",
-    ))?;
+    let cql = BASE64_STANDARD
+        .decode(cql_enc)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid base64"))?;
+    let cql = String::from_utf8(cql)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid UTF-8"))?;
     let Some(project) = &CONFIG.project else {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
