@@ -158,7 +158,8 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         .decode(cql_enc)
         .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid base64"))?;
     let cql = String::from_utf8(cql)
-        .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid UTF-8"))?;
+        .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid UTF-8"))?
+        .replace("\r\n", "\n");
     let Some(project) = &CONFIG.project else {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -175,7 +176,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
                     )
                 })?
                 .trim()
-                .to_string(),
+                .replace("\r\n", "\n"),
         )
     })?;
     let Some(user_defined_query) = cql.strip_prefix(query_header.as_str()) else {
