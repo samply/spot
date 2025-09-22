@@ -8,5 +8,4 @@ RUN chmod +x /app/*
 FROM gcr.io/distroless/cc-debian12
 ARG COMPONENT
 COPY --from=chmodder /app/$COMPONENT /usr/local/bin/spot
-COPY ./lens_queries /lens_queries
 ENTRYPOINT [ "/usr/local/bin/spot" ]
