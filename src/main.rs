@@ -163,10 +163,20 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         )
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse measure file"))?)
     })?;
-    if json["measure"] != *reference_measure {
+    let mut reference_measure = reference_measure.clone();
+    let mut actual_measure = json["measure"].clone();
+    if let Some(obj) = reference_measure.as_object_mut() {
+        obj.remove("url");
+        obj.remove("library");
+    }
+    if let Some(obj) = actual_measure.as_object_mut() {
+        obj.remove("url");
+        obj.remove("library");
+    }
+    if actual_measure != reference_measure {
         warn!("Measure missmatch");
         warn!("expected={:?}", reference_measure);
-        warn!("   found={:?}", json["measure"]);
+        warn!("   found={:?}", actual_measure);
         return Err((StatusCode::BAD_REQUEST, "CQL query contains forbidden measure"));
     }
 
