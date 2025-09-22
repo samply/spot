@@ -182,7 +182,8 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
             "CQL query does not start with the required header",
         ));
     };
-    let placeholders: Vec<&str> = vec![
+    let forbidden_words: Vec<&str> = vec![
+        "define",
         "BBMRI_STRAT_AGE_STRATIFIER",
         "BBMRI_STRAT_CUSTODIAN_STRATIFIER",
         "BBMRI_STRAT_DEF_IN_INITIAL_POPULATION",
@@ -226,7 +227,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         "PRISM_STRAT_AGE_STRATIFIER_BBMRI",
         "UCT_STRAT_SPECIMEN_STRATIFIER",
     ];
-    if placeholders.iter().any(|ph| user_defined_query.contains(ph)) {
+    if forbidden_words.iter().any(|ph| user_defined_query.contains(ph)) {
         return Err((
             StatusCode::BAD_REQUEST,
             "CQL query contains forbidden placeholder",
