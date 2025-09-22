@@ -40,6 +40,7 @@ mod health;
 static CONFIG: Lazy<Config> = Lazy::new(Config::parse);
 
 static LENS_QUERY_HEADER: OnceCell<String> = OnceCell::new();
+static LENS_QUERY_MEASURE: OnceCell<serde_json::Value> = OnceCell::new();
 
 static BEAM_CLIENT: Lazy<BeamClient> = Lazy::new(|| {
     BeamClient::new(
@@ -150,6 +151,25 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
     if json["lang"] != "cql" {
         return Ok(());
     }
+
+    let reference_measure = LENS_QUERY_MEASURE.get_or_try_init(|| {
+        Ok(serde_json::from_str::<serde_json::Value>(
+            &std::fs::read_to_string(format!("/query_measure.json")).map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to read measure file",
+                )
+            })?,
+        )
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse measure file"))?)
+    })?;
+    if json["measure"] != *reference_measure {
+        warn!("Measure missmatch");
+        warn!("expected={:?}", reference_measure);
+        warn!("   found={:?}", json["measure"]);
+        return Err((StatusCode::BAD_REQUEST, "CQL query contains forbidden measure"));
+    }
+
     let cql_enc = json["lib"]["content"][0]["data"].as_str().ok_or((
         StatusCode::BAD_REQUEST,
         "Query does not contain a CQL payload",
