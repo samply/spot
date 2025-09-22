@@ -179,6 +179,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         )
     })?;
     let Some(user_defined_query) = cql.strip_prefix(query_header.as_str()) else {
+        warn!(%query_header, %cql, "Header missmatch");
         return Err((
             StatusCode::BAD_REQUEST,
             "CQL query does not start with the required header",
