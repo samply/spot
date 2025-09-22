@@ -7,5 +7,3 @@ codesystem loinc: 'http://loinc.org'
 
 context Patient
 EXLIQUID_CQL_DIAGNOSIS EXLIQUID_CQL_SPECIMEN EXLIQUID_STRAT_DEF_IN_INITIAL_POPULATION
-(exists from [Specimen] S
-where FHIRHelpers.ToDateTime(S.collection.collected) between @2021-01-01 and @2025-09-19)
