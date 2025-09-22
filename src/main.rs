@@ -160,15 +160,9 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
     let cql = String::from_utf8(cql)
         .map_err(|_| (StatusCode::BAD_REQUEST, "CQL payload is not valid UTF-8"))?
         .replace("\r\n", "\n");
-    let Some(project) = &CONFIG.project else {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Project is not configured for CQL validation",
-        ));
-    };
     let query_header = LENS_QUERY_HEADER.get_or_try_init(|| {
         Ok(
-            std::fs::read_to_string(format!("/lens_queries/{project}.cql"))
+            std::fs::read_to_string(format!("/query_header.cql"))
                 .map_err(|_| {
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
