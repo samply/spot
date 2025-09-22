@@ -153,7 +153,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
     }
 
     let reference_measure = LENS_QUERY_MEASURE.get_or_try_init(|| {
-        Ok(serde_json::from_str::<serde_json::Value>(
+        let mut measure = serde_json::from_str::<serde_json::Value>(
             &std::fs::read_to_string(format!("/query_measure.json")).map_err(|_| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -161,19 +161,19 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
                 )
             })?,
         )
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse measure file"))?)
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse measure file"))?;
+        if let Some(obj) = measure.as_object_mut() {
+            obj.remove("url");
+            obj.remove("library");
+        }
+        Ok(measure)
     })?;
-    let mut reference_measure = reference_measure.clone();
     let mut actual_measure = json["measure"].clone();
-    if let Some(obj) = reference_measure.as_object_mut() {
-        obj.remove("url");
-        obj.remove("library");
-    }
     if let Some(obj) = actual_measure.as_object_mut() {
         obj.remove("url");
         obj.remove("library");
     }
-    if actual_measure != reference_measure {
+    if actual_measure != *reference_measure {
         warn!("Measure missmatch");
         warn!("expected={:?}", reference_measure);
         warn!("   found={:?}", actual_measure);
