@@ -154,7 +154,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
 
     let reference_measure = LENS_QUERY_MEASURE.get_or_try_init(|| {
         let mut measure = serde_json::from_str::<serde_json::Value>(
-            &std::fs::read_to_string(format!("/query_measure.json")).map_err(|_| {
+            &std::fs::read_to_string("/query/measure.json").map_err(|_| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Failed to read measure file",
@@ -192,7 +192,7 @@ fn verify_query(query: &LensQuery) -> Result<(), (StatusCode, &'static str)> {
         .replace("\r\n", "\n");
     let query_header = LENS_QUERY_HEADER.get_or_try_init(|| {
         Ok(
-            std::fs::read_to_string(format!("/query_header.cql"))
+            std::fs::read_to_string("/query/header.cql")
                 .map_err(|_| {
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
