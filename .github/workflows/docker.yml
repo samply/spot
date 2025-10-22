@@ -18,7 +18,6 @@ jobs:
       image-prefix: "samply/"
       components: '[ "rustyspot" ]'
       #architectures: '[ "amd64" ]'
-      push-to: ${{ (github.ref_protected == true || github.event_name == 'workflow_dispatch') && 'dockerhub' || 'ghcr' }}
     # This passes the secrets from calling workflow to the called workflow
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
