@@ -24,9 +24,9 @@ pub struct Config {
     #[clap(long, env, value_parser = parse_cors)]
     pub cors_origin: AllowOrigin,
 
-    /// Optional project name used by Focus
+    /// Project name used by Focus
     #[clap(long, env)]
-    pub project: Option<String>,
+    pub project: String,
 
     /// Optional transformation format for the results, used by Focus
     #[clap(long, env)]
@@ -67,6 +67,4 @@ fn parse_cors(v: &str) -> Result<AllowOrigin, InvalidHeaderValue> {
     } else {
         v.parse().map(AllowOrigin::exact)
     }
-
 }
-
