@@ -21,7 +21,7 @@ The following environment variables are mandatory for the usage of Spot.
 --cors-origin <CORS_ORIGIN>
     Where to allow cross-origin resourse sharing from [env: CORS_ORIGIN=]
 --project <PROJECT>
-    Optional project name used by Focus [env: PROJECT=]
+    Project name used by Focus [env: PROJECT=]
 ```
 
 Optional environment variables:
