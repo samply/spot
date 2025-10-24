@@ -19,13 +19,13 @@ The following environment variables are mandatory for the usage of Spot.
 --beam-secret <BEAM_SECRET>
     Credentials to use on the Beam Proxy [env: BEAM_SECRET=]
 --cors-origin <CORS_ORIGIN>
-   Where to allow cross-origin resourse sharing from [env: CORS_ORIGIN=]
+    Where to allow cross-origin resourse sharing from [env: CORS_ORIGIN=]
+--project <PROJECT>
+    Optional project name used by Focus [env: PROJECT=]
 ```
 
 Optional environment variables:
 ```
---project <PROJECT>
-    Optional project name used by Focus [env: PROJECT=]
 --transform <TRANSFORM>
     Optional transformation format for the results, used by Focus [env: TRANSFORM=]
 --prism-url <PRISM_URL>

@@ -23,11 +23,7 @@ pub fn create_beam_task(
         "none"
     };
 
-    let project = if let Some(project) = &CONFIG.project {
-        project
-    } else {
-        "default_obfuscation"
-    };
+    let project = &CONFIG.project;
 
     let metadata = serde_json::json!({
             "project": project,

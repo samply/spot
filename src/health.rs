@@ -1,10 +1,9 @@
 use serde::Serialize;
 
-
 #[derive(Serialize)]
 pub struct HealthOutput {
     pub summary: Verdict,
-    pub beam: BeamStatus
+    pub beam: BeamStatus,
 }
 
 #[derive(Serialize)]
