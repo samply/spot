@@ -21,7 +21,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 # Logging
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-reqwest = { version = "0.12", default-features = false, features = ["stream", "default-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["stream", "default-tls"] }
 tower-http = { version = "0.6", features = ["cors"] }
 base64 = "0.22"
 
