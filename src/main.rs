@@ -63,12 +63,6 @@ async fn main() {
 
     info!("{:#?}", Lazy::force(&CONFIG));
 
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_origin(CONFIG.cors_origin.clone())
-        .allow_headers([header::CONTENT_TYPE])
-        .allow_credentials(true);
-
     let app = Router::new()
         .route("/health", get(handler_health))
         .route("/beam", post(handle_create_beam_task))
@@ -78,8 +72,18 @@ async fn main() {
     let state = SharedState::default();
     let app = app
         .with_state(state)
-        .layer(axum::middleware::map_response(banner::set_server_header))
-        .layer(cors);
+        .layer(axum::middleware::map_response(banner::set_server_header));
+
+    let app = match CONFIG.cors_origin.clone() {
+        Some(cors_origin) => {
+            let cors = CorsLayer::new()
+                .allow_methods([Method::GET, Method::POST])
+                .allow_origin(cors_origin)
+                .allow_headers([header::CONTENT_TYPE]);
+            app.layer(cors)
+        }
+        None => app,
+    };
 
     // TODO: Add check for reachability of beam-proxy
 

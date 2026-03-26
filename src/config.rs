@@ -22,7 +22,7 @@ pub struct Config {
 
     /// Where to allow cross-origin resourse sharing from
     #[clap(long, env, value_parser = parse_cors)]
-    pub cors_origin: AllowOrigin,
+    pub cors_origin: Option<AllowOrigin>,
 
     /// Project name used by Focus
     #[clap(long, env)]

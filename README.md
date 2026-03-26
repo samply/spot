@@ -18,8 +18,6 @@ The following environment variables are mandatory for the usage of Spot.
     Beam AppId of this application, e.g. spot.proxy1.broker.samply.de [env: BEAM_APP_ID=]
 --beam-secret <BEAM_SECRET>
     Credentials to use on the Beam Proxy [env: BEAM_SECRET=]
---cors-origin <CORS_ORIGIN>
-    Where to allow cross-origin resourse sharing from [env: CORS_ORIGIN=]
 --project <PROJECT>
     Project name used by Focus [env: PROJECT=]
 ```
@@ -38,6 +36,8 @@ Optional environment variables:
     Comma separated list of base64 encoded queries [env: QUERY_FILTER=]
 --sites <SITES>
     Comma separated list of sites to query in case of no sites in the query from Lens [env: SITES=]
+--cors-origin <CORS_ORIGIN>
+    Where to allow cross-origin resourse sharing from [env: CORS_ORIGIN=]
 ```
 
 ## API
