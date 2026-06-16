@@ -8,7 +8,6 @@ use axum::{
 use base64::{prelude::BASE64_STANDARD, Engine};
 use std::{
     collections::HashMap,
-    io,
     path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -23,14 +22,15 @@ use health::{BeamStatus, HealthOutput, Verdict};
 use once_cell::sync::Lazy;
 use reqwest::{header, Method, StatusCode};
 use serde::{Deserialize, Serialize};
+use sse_stream::SseStream;
 use tokio::{
     io::AsyncWriteExt,
     net::TcpListener,
     sync::{mpsc, Mutex},
 };
 use tower_http::cors::CorsLayer;
-use tracing::{info, warn, Level};
-use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
+use tracing::{info, warn};
+use tracing_subscriber::util::SubscriberInitExt;
 
 mod banner;
 mod beam;
@@ -261,36 +261,28 @@ async fn handle_listen_to_beam_tasks(
     if sender.is_none() && CONFIG.log_file.is_some() {
         warn!("Logging is enabled but no log sender found for logging results.");
     }
-    let stream = async_sse::decode(
-        resp.bytes_stream()
-            .map_err(io::Error::other)
-            .into_async_read(),
-    )
-    .and_then(move |event| {
+    let stream = SseStream::from_byte_stream(resp.bytes_stream()).and_then(move |event| {
         let sender = sender.clone();
         async move {
-            match event {
-                async_sse::Event::Retry(_) => unreachable!("Beam does not send retries!"),
-                async_sse::Event::Message(m) => {
-                    if let Ok(result) =
-                        serde_json::from_slice::<TaskResult<beam_lib::RawString>>(m.data())
-                    {
-                        if result.status == beam_lib::WorkStatus::Succeeded {
-                            if let Some(sender) = sender {
-                                sender
-                                    .send(
-                                        result.from.as_ref().split('.').nth(1).unwrap().to_owned(),
-                                    )
-                                    .await
-                                    .expect("not dropped");
-                            }
-                        }
+            if event.retry.is_some() && event.data.is_none() {
+                unreachable!("Beam does not send retries!");
+            }
+
+            let data = event.data.unwrap_or_default();
+            if let Ok(result) = serde_json::from_str::<TaskResult<beam_lib::RawString>>(&data) {
+                if result.status == beam_lib::WorkStatus::Succeeded {
+                    if let Some(sender) = sender {
+                        sender
+                            .send(result.from.as_ref().split('.').nth(1).unwrap().to_owned())
+                            .await
+                            .expect("not dropped");
                     }
-                    Ok(Event::default()
-                        .data(String::from_utf8_lossy(m.data()))
-                        .event(m.name()))
                 }
             }
+
+            Ok(Event::default()
+                .data(data)
+                .event(event.event.unwrap_or_else(|| "message".to_owned())))
         }
     });
     Ok(Sse::new(stream))
